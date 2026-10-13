@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { ApiError, api } from '@/lib/api';
-import { formatDateTime, formatQuantity } from '@/lib/format';
+import { formatDateTime, formatQuantity, movementLabel } from '@/lib/format';
 import type { Movement, Page } from '@/lib/types';
 
 import { MovementForm } from '@/components/movements/MovementForm';
@@ -92,7 +92,7 @@ export default function MovementsPage() {
                 <Td className="whitespace-nowrap text-ink-2">
                   {formatDateTime(movement.created_at)}
                 </Td>
-                <Td className="text-ink-2">{movement.type}</Td>
+                <Td className="text-ink-2">{movementLabel(movement.type)}</Td>
                 <Td>
                   <span className="ref">{movement.product_sku}</span>
                   <span className="ml-2">{movement.product_name}</span>

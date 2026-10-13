@@ -4,7 +4,14 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
 import { api } from '@/lib/api';
-import { MOVEMENT_LABEL, formatDateTime, formatDelta, formatMoney, formatQuantity } from '@/lib/format';
+import type { LowStockReport as LowStock } from '@/lib/api-types';
+import {
+  formatDateTime,
+  formatDelta,
+  formatMoney,
+  formatQuantity,
+  movementLabel,
+} from '@/lib/format';
 import type { MovementType } from '@/lib/types';
 import { StockGauge } from '@/components/StockGauge';
 import { Table, TableNote, Td, Th } from '@/components/ui/DataTable';
@@ -38,24 +45,6 @@ interface Dashboard {
   product_count: number;
   low_stock_count: number;
   recent_movements: RecentMovement[];
-}
-
-interface LowStockItem {
-  product_id: string;
-  sku: string;
-  name: string;
-  quantity: string;
-  reorder_point: string;
-  reorder_qty: string;
-  unit: string | null;
-  supplier: string | null;
-  suggested_order_cost: string | null;
-}
-
-interface LowStock {
-  items: LowStockItem[];
-  total: number;
-  estimated_cost: string;
 }
 
 export default function DashboardPage() {
@@ -154,7 +143,7 @@ export default function DashboardPage() {
                       reorderPoint={Number(item.reorder_point)}
                       reorderQty={Number(item.reorder_qty)}
                       label={formatQuantity(item.quantity)}
-                      unit={item.unit ?? undefined}
+                      unit={item.unit}
                     />
                   </Td>
                 </tr>
@@ -199,7 +188,7 @@ export default function DashboardPage() {
                     <span className="ml-2">{movement.product_name}</span>
                   </Td>
                   <Td className="text-ink-2">{movement.location_name}</Td>
-                  <Td className="text-ink-2">{MOVEMENT_LABEL[movement.type]}</Td>
+                  <Td className="text-ink-2">{movementLabel(movement.type)}</Td>
                   <Td align="right" className="font-mono text-[12px]">
                     {formatDelta(Number(movement.delta))}
                   </Td>

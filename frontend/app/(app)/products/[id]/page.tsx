@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import { api } from '@/lib/api';
-import { formatDateTime, formatMoney, formatQuantity } from '@/lib/format';
+import { formatDateTime, formatMoney, formatQuantity, movementLabel } from '@/lib/format';
 import type { Movement, Page, ProductDetail } from '@/lib/types';
 import { Table, TableNote, Td, Th } from '@/components/ui/DataTable';
 import { LoadingNote, PageError } from '@/components/ui/Notice';
@@ -128,7 +128,7 @@ export default function ProductDetailPage() {
                   <Td className="whitespace-nowrap text-ink-2">
                     {formatDateTime(movement.created_at)}
                   </Td>
-                  <Td className="text-ink-2">{movement.type}</Td>
+                  <Td className="text-ink-2">{movementLabel(movement.type)}</Td>
                   <Td>{movement.location_name ?? '—'}</Td>
                   <Td className="text-ink-2">{movement.user_email ?? 'system'}</Td>
                   <Td align="right">{formatQuantity(movement.quantity)}</Td>

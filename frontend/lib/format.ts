@@ -47,6 +47,17 @@ export const MOVEMENT_LABEL: Record<MovementType, string> = {
 };
 
 /**
+ * Human label for a movement type, falling back to the raw value.
+ *
+ * `movement_type` is an enum, but the API is a separate deployable: a label
+ * added on the backend before the frontend ships must render as itself rather
+ * than as `undefined` inside a table cell.
+ */
+export function movementLabel(type: string): string {
+  return MOVEMENT_LABEL[type as MovementType] ?? type;
+}
+
+/**
  * Effect of a movement on stock, as reported by the API in `delta`. The ledger
  * owns the sign rule; this side only formats the number it is handed.
  */

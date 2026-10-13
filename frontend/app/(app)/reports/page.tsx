@@ -4,6 +4,11 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { api } from '@/lib/api';
 import { formatDateTime, formatMoney, formatQuantity } from '@/lib/format';
+import type {
+  LowStockReport as LowStock,
+  MovementSummaryRow as SummaryRow,
+  ValuationReport as Valuation,
+} from '@/lib/api-types';
 import type { Organization } from '@/lib/types';
 
 import { PrintButton } from '@/components/PrintButton';
@@ -11,45 +16,6 @@ import { Table, TableNote, Td, Th } from '@/components/ui/DataTable';
 import { LoadingNote, PageError } from '@/components/ui/Notice';
 import { Figure, FigureStrip, Panel } from '@/components/ui/Panel';
 import { PageHeader, SectionHead } from '@/components/ui/PageHeader';
-
-interface Valuation {
-  totals: Record<string, string>;
-  by_location: Array<{
-    location_id: string;
-    location_name: string;
-    location_type: string;
-    total_units: string;
-    total_cost_value: string;
-    total_retail_value: string;
-  }>;
-}
-
-interface LowStockItem {
-  product_id: string;
-  sku: string;
-  name: string;
-  quantity: string;
-  reorder_point: string;
-  reorder_qty: string;
-  unit: string;
-  supplier: string | null;
-  suggested_order_qty: string;
-  suggested_order_cost: string;
-}
-
-interface LowStock {
-  items: LowStockItem[];
-  total: number;
-  estimated_cost: string;
-}
-
-interface SummaryRow {
-  type: string;
-  movement_count: string;
-  total_quantity: string;
-  first_at: string | null;
-  last_at: string | null;
-}
 
 const LOCATION_COLUMNS = 5;
 const LOW_STOCK_COLUMNS = 7;

@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { ApiError, api } from '@/lib/api';
 import { resolveScan } from '@/lib/scan';
 import type { Location, Page, Product, ProductDetail } from '@/lib/types';
+import { cn } from '@/lib/utils';
 import { FormError } from '@/components/form/Primitives';
 import {
   MOVEMENT_MODES,
@@ -27,6 +28,7 @@ export function MovementForm({ onRecorded }: Props) {
   const [locations, setLocations] = useState<Location[]>([]);
 
   const [mode, setMode] = useState<MovementMode>('in');
+  const radios = useRef<Array<HTMLInputElement | null>>([]);
   const [scan, setScan] = useState('');
   const [product, setProduct] = useState<Product | null>(null);
   const [locationId, setLocationId] = useState('');
@@ -166,18 +168,62 @@ export function MovementForm({ onRecorded }: Props) {
     <Panel className="print:hidden space-y-3 p-4">
       <div className="flex items-baseline justify-between gap-4">
         <h2 className="section-head">Record movement</h2>
-        <div className="flex gap-1">
-          {MOVEMENT_MODES.map((option) => (
-            <Button
-              key={option.value}
-              size="sm"
-              variant={mode === option.value ? 'primary' : 'ghost'}
-              onClick={() => setMode(option.value)}
-            >
-              {option.label}
-            </Button>
-          ))}
-        </div>
+        <fieldset className="flex flex-col gap-1">
+          <legend className="sr-only">Movement type</legend>
+          <div
+            role="radiogroup"
+            aria-label="Movement type"
+            className="flex flex-wrap gap-1"
+            onKeyDown={(event) => {
+              // Arrow keys move and select, matching native radio behaviour.
+              const step =
+                event.key === 'ArrowRight' || event.key === 'ArrowDown'
+                  ? 1
+                  : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+                    ? -1
+                    : 0;
+              if (step === 0) return;
+              event.preventDefault();
+              const current = MOVEMENT_MODES.findIndex((option) => option.value === mode);
+              const next =
+                (current + step + MOVEMENT_MODES.length) % MOVEMENT_MODES.length;
+              const target = MOVEMENT_MODES[next];
+              if (target === undefined) return;
+              setMode(target.value);
+              radios.current[next]?.focus();
+            }}
+          >
+            {MOVEMENT_MODES.map((option, index) => {
+              const selected = mode === option.value;
+              return (
+                <label
+                  key={option.value}
+                  className={cn(
+                    'inline-flex h-7 cursor-pointer items-center gap-1.5 rounded border px-2.5 text-[13px] transition-colors',
+                    // Selected differs by weight and fill, not only by hue, so the
+                    // state survives greyscale and colour-blind viewing.
+                    selected
+                      ? 'border-ink bg-ink font-semibold text-white'
+                      : 'border-line bg-surface font-normal text-ink-2 hover:bg-sunk hover:text-ink',
+                  )}
+                >
+                  <input
+                    ref={(node) => {
+                      radios.current[index] = node;
+                    }}
+                    type="radio"
+                    name="movement-mode"
+                    value={option.value}
+                    checked={selected}
+                    onChange={() => setMode(option.value)}
+                    className="sr-only"
+                  />
+                  {option.label}
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { api } from '@/lib/api';
+import { api, describeError } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import type { Organization } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Table, TableNote, Td, Th } from '@/components/ui/DataTable';
-import { LoadingNote, PageError } from '@/components/ui/Notice';
+import { ErrorNote, LoadingNote, PageError } from '@/components/ui/Notice';
 import { Figure, FigureStrip, Panel } from '@/components/ui/Panel';
 import { PageHeader, SectionHead } from '@/components/ui/PageHeader';
 
@@ -31,11 +31,12 @@ export default function SettingsPage() {
   const [org, setOrg] = useState<Organization | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
-  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [membersError, setMembersError] = useState<unknown>(null);
   const [error, setError] = useState<unknown>(null);
 
   const load = useCallback(async () => {
     setError(null);
+    setMembersError(null);
     try {
       const [organization, usage] = await Promise.all([
         api<Organization>('/api/orgs/me'),
@@ -43,25 +44,23 @@ export default function SettingsPage() {
       ]);
       setOrg(organization);
       setStats(usage);
-
-      try {
-        setMembers(await api<Member[]>('/api/orgs/members'));
-      } catch {
-        setMembers([]);
-      }
     } catch (caught) {
       setError(caught);
+      return;
+    }
+
+    // Members load separately: a failure there must say "could not load",
+    // not "no other members yet", which is a different fact.
+    try {
+      setMembers(await api<Member[]>('/api/orgs/members'));
+    } catch (caught) {
+      setMembersError(caught);
     }
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
-
-  function generateKey(): void {
-    const bytes = crypto.getRandomValues(new Uint8Array(24));
-    setApiKey(Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join(''));
-  }
 
   if (error !== null) {
     return (
@@ -116,14 +115,24 @@ export default function SettingsPage() {
               </tr>
             </thead>
             <tbody>
-              {members.map((member) => (
-                <tr key={member.id}>
-                  <Td>{member.email}</Td>
-                  <Td className="text-ink-2">{member.full_name ?? '—'}</Td>
-                  <Td>{member.role}</Td>
+              {membersError !== null ? (
+                <tr>
+                  <td colSpan={MEMBER_COLUMNS} className="td py-0">
+                    <ErrorNote>
+                      The member list could not be loaded: {describeError(membersError, 'Unknown error')}
+                    </ErrorNote>
+                  </td>
                 </tr>
-              ))}
-              {members.length === 0 && (
+              ) : (
+                members.map((member) => (
+                  <tr key={member.id}>
+                    <Td>{member.email}</Td>
+                    <Td className="text-ink-2">{member.full_name ?? '—'}</Td>
+                    <Td>{member.role}</Td>
+                  </tr>
+                ))
+              )}
+              {membersError === null && members.length === 0 && (
                 <TableNote colSpan={MEMBER_COLUMNS}>No other members yet.</TableNote>
               )}
             </tbody>
@@ -133,15 +142,17 @@ export default function SettingsPage() {
 
       <section className="space-y-3">
         <SectionHead>API access</SectionHead>
-        <p className="text-[13px] text-ink-2">API keys are available on the Business plan.</p>
-        <div className="flex items-center gap-3">
-          <Button onClick={generateKey}>Generate key</Button>
-          {apiKey !== null && (
-            <code className="rounded bg-sunk px-2 py-1 font-mono text-[11px] text-ink-2">
-              {apiKey}
-            </code>
-          )}
-        </div>
+        <Panel>
+          <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+            <Button disabled title="API keys are not available yet — the registration endpoint does not exist.">
+              Generate key
+            </Button>
+            <p className="text-[13px] text-ink-2">
+              API keys are not available yet. The server has no endpoint to register a
+              key against, so anything generated here would not authenticate.
+            </p>
+          </div>
+        </Panel>
       </section>
     </div>
   );
