@@ -23,6 +23,14 @@ DEMO_PASSWORD = os.environ.get("DEMO_PASSWORD", "demo1234")
 
 async def run() -> None:
     settings = get_settings()
+    if not settings.is_dev:
+        # The demo login uses a publicly documented password, so it must never
+        # exist outside a developer's machine.
+        raise SystemExit(
+            f"refusing to seed demo data: ENVIRONMENT={settings.environment}. "
+            "Run this only in dev."
+        )
+
     conn = await asyncpg.connect(settings.database_url)
     try:
         existing = await conn.fetchrow("SELECT id FROM users WHERE email = $1", DEMO_EMAIL)
