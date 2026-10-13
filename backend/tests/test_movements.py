@@ -1,0 +1,232 @@
+from __future__ import annotations
+
+import uuid
+
+import asyncpg
+import pytest
+
+from app.db import connection
+from app.models.movement import MovementIn, TransferIn
+from app.services import movement_service
+
+# The service layer lets database constraint violations propagate as asyncpg
+# errors; main.py maps them to {"error", "code"} at the HTTP boundary.
+
+
+async def _stock(product_id: uuid.UUID, location_id: uuid.UUID) -> float:
+    async with connection() as conn:
+        value = await conn.fetchval(
+            "SELECT quantity FROM stock_levels WHERE product_id = $1 AND location_id = $2",
+            product_id,
+            location_id,
+        )
+    return float(value) if value is not None else 0.0
+
+
+async def _on_hand(product_id: uuid.UUID) -> float:
+    async with connection() as conn:
+        return float(
+            await conn.fetchval(
+                "SELECT COALESCE(SUM(quantity), 0) FROM stock_levels WHERE product_id = $1",
+                product_id,
+            )
+        )
+
+
+async def test_in_movement_creates_stock_level(org_and_user, product, location) -> None:
+    org_id, user_id = org_and_user
+
+    async with connection() as conn:
+        movement = await movement_service.record_movement(
+            conn,
+            org_id,
+            user_id,
+            MovementIn(
+                product_id=product,
+                location_id=location,
+                type="in",
+                quantity=25,
+                reference="PO-1001",
+            ),
+        )
+
+    assert movement["type"] == "in"
+    assert await _stock(product, location) == 25.0
+
+
+async def test_out_movement_decrements_stock(org_and_user, product, location) -> None:
+    org_id, user_id = org_and_user
+    async with connection() as conn:
+        await movement_service.record_movement(
+            conn, org_id, user_id,
+            MovementIn(product_id=product, location_id=location, type="in", quantity=10),
+        )
+        await movement_service.record_movement(
+            conn, org_id, user_id,
+            MovementIn(product_id=product, location_id=location, type="out", quantity=4),
+        )
+
+    assert await _stock(product, location) == 6.0
+
+
+async def test_out_movement_beyond_stock_is_rejected(org_and_user, product, location) -> None:
+    org_id, user_id = org_and_user
+    async with connection() as conn:
+        await movement_service.record_movement(
+            conn, org_id, user_id,
+            MovementIn(product_id=product, location_id=location, type="in", quantity=3),
+        )
+
+    with pytest.raises(asyncpg.CheckViolationError, match="insufficient stock"):
+        async with connection() as conn:
+            await movement_service.record_movement(
+                conn, org_id, user_id,
+                MovementIn(product_id=product, location_id=location, type="out", quantity=10),
+            )
+
+    # The failed statement rolls back; derived state stays consistent.
+    assert await _stock(product, location) == 3.0
+
+
+async def test_adjust_accepts_signed_delta(org_and_user, product, location) -> None:
+    org_id, user_id = org_and_user
+    async with connection() as conn:
+        await movement_service.record_movement(
+            conn, org_id, user_id,
+            MovementIn(product_id=product, location_id=location, type="in", quantity=20),
+        )
+    async with connection() as conn:
+        await movement_service.record_movement(
+            conn, org_id, user_id,
+            MovementIn(product_id=product, location_id=location, type="adjust", quantity=-2),
+        )
+
+    assert await _stock(product, location) == 18.0
+
+
+async def test_transfer_moves_quantity_between_locations(org_and_user, product, location) -> None:
+    org_id, user_id = org_and_user
+    destination = uuid.uuid4()
+    async with connection() as conn:
+        await conn.execute(
+            "INSERT INTO locations (id, org_id, name, type) VALUES ($1,$2,'Destination','shelf')",
+            destination,
+            org_id,
+        )
+        await movement_service.record_movement(
+            conn, org_id, user_id,
+            MovementIn(product_id=product, location_id=location, type="in", quantity=50),
+        )
+
+    async with connection() as conn:
+        rows = await movement_service.record_transfer(
+            conn, org_id, user_id,
+            TransferIn(
+                product_id=product,
+                from_location_id=location,
+                to_location_id=destination,
+                quantity=12,
+            ),
+        )
+
+    assert {r["type"] for r in rows} == {"transfer_out", "transfer_in"}
+    # One shared reference ties the pair together.
+    assert len({r["reference"] for r in rows}) == 1
+
+    assert await _stock(product, location) == 38.0
+    assert await _stock(product, destination) == 12.0
+    assert await _on_hand(product) == 50.0
+
+
+async def test_transfer_is_atomic_when_source_is_short(org_and_user, product, location) -> None:
+    org_id, user_id = org_and_user
+    destination = uuid.uuid4()
+    async with connection() as conn:
+        await conn.execute(
+            "INSERT INTO locations (id, org_id, name, type) VALUES ($1,$2,'Destination','shelf')",
+            destination,
+            org_id,
+        )
+        await movement_service.record_movement(
+            conn, org_id, user_id,
+            MovementIn(product_id=product, location_id=location, type="in", quantity=5),
+        )
+
+    with pytest.raises(asyncpg.CheckViolationError):
+        async with connection() as conn:
+            await movement_service.record_transfer(
+                conn, org_id, user_id,
+                TransferIn(
+                    product_id=product,
+                    from_location_id=location,
+                    to_location_id=destination,
+                    quantity=10,
+                ),
+            )
+
+    # Neither leg survives.
+    assert await _stock(product, destination) == 0.0
+    assert await _stock(product, location) == 5.0
+
+
+async def test_movement_rejects_cross_org_location(
+    org_and_user, product, rival, db_pool
+) -> None:
+    org_id, user_id = org_and_user
+    _rival_client = rival
+
+    foreign_location = uuid.uuid4()
+    async with connection() as conn:
+        rival_org_id = await conn.fetchval(
+            "SELECT id FROM organizations WHERE slug LIKE 'rival-%'"
+        )
+        await conn.execute(
+            "INSERT INTO locations (id, org_id, name, type) VALUES ($1,$2,'Rival Shelf','shelf')",
+            foreign_location,
+            rival_org_id,
+        )
+
+    with pytest.raises(asyncpg.ForeignKeyViolationError, match="does not belong to org"):
+        async with connection() as conn:
+            await movement_service.record_movement(
+                conn, org_id, user_id,
+                MovementIn(product_id=product, location_id=foreign_location, type="in", quantity=5),
+            )
+
+
+async def test_movements_are_append_only(org_and_user, product, location) -> None:
+    org_id, user_id = org_and_user
+    async with connection() as conn:
+        await movement_service.record_movement(
+            conn, org_id, user_id,
+            MovementIn(product_id=product, location_id=location, type="in", quantity=7),
+        )
+
+    with pytest.raises(asyncpg.RestrictViolationError, match="append-only"):
+        async with connection() as conn:
+            await conn.execute(
+                "UPDATE stock_movements SET quantity = 999 WHERE org_id = $1", org_id
+            )
+
+    with pytest.raises(asyncpg.RestrictViolationError, match="append-only"):
+        async with connection() as conn:
+            await conn.execute("DELETE FROM stock_movements WHERE org_id = $1", org_id)
+
+    # The ledger is untouched.
+    assert await _stock(product, location) == 7.0
+
+
+async def test_history_is_scoped_to_org(org_and_user, product, location) -> None:
+    org_id, user_id = org_and_user
+    async with connection() as conn:
+        await movement_service.record_movement(
+            conn, org_id, user_id,
+            MovementIn(product_id=product, location_id=location, type="in", quantity=1),
+        )
+        rows, total = await movement_service.product_history(
+            conn, org_id, product, limit=20, offset=0
+        )
+
+    assert total == 1
+    assert rows[0]["product_sku"] == "TEST-001"
+    assert rows[0]["user_email"] is not None

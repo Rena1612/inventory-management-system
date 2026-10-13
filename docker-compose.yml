@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-inventory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-inventory}
+      POSTGRES_DB: ${POSTGRES_DB:-inventory}
+    ports:
+      # Host 5433 by default: a local PostgreSQL install commonly owns 5432.
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-inventory} -d ${POSTGRES_DB:-inventory}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-inventory}:${POSTGRES_PASSWORD:-inventory}@db:5432/${POSTGRES_DB:-inventory}
+    ports:
+      - "${API_HOST_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+
+volumes:
+  pgdata:

@@ -1,0 +1,245 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Cool neutral ramp. Never tinted near-black. */
+    --canvas: #f3f4f6;
+    --surface: #ffffff;
+    --sunk: #f7f8f9;
+    --line: #e3e5e9;
+    --line-strong: #c8ccd3;
+    --ink: #15171b;
+    --ink-2: #585f68;
+    --ink-3: #686f79;
+
+    /* The one accent: cyanotype blue, carrying interaction only. */
+    --accent: #0b5fa5;
+    --accent-weak: #e7eff6;
+    --accent-deep: #083f6b;
+
+    /* Reserved for stock level. Nothing decorative may use these. */
+    --stock-low: #8a5806;
+    --stock-low-bg: #f9efda;
+    --stock-out: #a02a21;
+    --stock-out-bg: #f9e7e5;
+
+    --radius: 2px;
+
+    /* Shadcn-compatible aliases, so untouched pages inherit the new system. */
+    --background: var(--canvas);
+    --foreground: var(--ink);
+    --muted: var(--sunk);
+    --muted-foreground: var(--ink-2);
+    --border: var(--line);
+    --input: var(--line);
+    --ring: var(--accent);
+    --primary: var(--ink);
+    --primary-foreground: #ffffff;
+    --secondary: var(--sunk);
+    --secondary-foreground: var(--ink-2);
+    --destructive: var(--stock-out);
+    --destructive-foreground: #ffffff;
+    --accent-foreground: var(--accent-deep);
+  }
+
+  .dark {
+    --canvas: #14161a;
+    --surface: #1b1e23;
+    --sunk: #212429;
+    --line: #2c3037;
+    --line-strong: #3d424b;
+    --ink: #eef0f3;
+    --ink-2: #a4abb4;
+    --ink-3: #767d87;
+    --accent: #4a9ee0;
+    --accent-weak: #16283a;
+    --accent-deep: #a9d2f0;
+    --stock-low: #d9a441;
+    --stock-low-bg: #2e2612;
+    --stock-out: #e5776b;
+    --stock-out-bg: #301917;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    /* Figures line up in every column, not just the ones styled as numerics. */
+    font-variant-numeric: tabular-nums;
+  }
+
+  * {
+    border-color: var(--line);
+  }
+
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  ::selection {
+    background: var(--accent-weak);
+    color: var(--accent-deep);
+  }
+}
+
+@layer components {
+  /* Structure is drawn with 1px rules, not with shadows. */
+  .panel {
+    @apply border border-line bg-surface;
+    border-radius: var(--radius);
+  }
+
+  .page-head {
+    @apply border-b border-line pb-2 text-[15px] font-semibold text-ink;
+  }
+
+  .section-head {
+    @apply text-[13px] font-medium text-ink-2;
+  }
+
+  .table {
+    @apply w-full text-left text-[13px];
+    border-collapse: collapse;
+  }
+
+  .th {
+    @apply border-b border-line-strong pb-1.5 text-[11px] font-normal text-ink-3;
+  }
+
+  .td {
+    @apply border-b border-line py-1.5 align-middle;
+  }
+
+  .num {
+    @apply text-right tabular-nums;
+  }
+
+  .ref {
+    @apply font-mono text-[11px] text-ink-2;
+  }
+
+  .btn,
+  .btn-primary,
+  .btn-ghost,
+  .btn-danger,
+  .btn-sm {
+    @apply inline-flex h-7 items-center justify-center whitespace-nowrap rounded border
+      px-2.5 text-[13px] font-medium transition-colors
+      disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .btn-primary {
+    @apply border-ink bg-ink text-white hover:border-accent hover:bg-accent;
+  }
+
+  .btn-ghost {
+    @apply border-line bg-surface text-ink-2 hover:bg-sunk hover:text-ink;
+  }
+
+  .btn-danger {
+    @apply border-line bg-surface text-stock-out hover:bg-stock-out-bg;
+  }
+
+  /* Row actions, so a table of buttons does not set the row height. */
+  .btn-sm {
+    @apply h-6 px-2 text-[12px];
+  }
+
+  .field {
+    @apply min-h-[30px] w-full rounded border bg-surface px-2 py-1.5 text-[13px] text-ink
+      placeholder:text-ink-3 focus:border-accent;
+  }
+
+  .label {
+    @apply mb-1 block text-[11px] text-ink-3;
+  }
+
+  .rail-link {
+    @apply relative flex h-7 items-center rounded-l px-3 text-[13px] text-ink-2
+      hover:bg-sunk hover:text-ink;
+  }
+
+  .rail-link-on,
+  .rail-link-on:hover {
+    @apply bg-accent-weak font-medium text-accent-deep;
+  }
+}
+
+@layer base {
+  @page {
+    margin: 15mm;
+  }
+
+  @media print {
+    html,
+    body {
+      background: #fff !important;
+      color: #000 !important;
+    }
+
+    /* Keep every section header with its table, and rows intact across pages. */
+    h1,
+    h2,
+    h3 {
+      break-after: avoid-page;
+      page-break-after: avoid;
+    }
+
+    tr,
+    .print-keep {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    thead {
+      display: table-header-group;
+    }
+
+    tfoot {
+      display: table-footer-group;
+    }
+
+    /* Status fills and gauges wash out on paper; the figures still carry. */
+    .panel {
+      border-color: #d4d4d4;
+    }
+
+    /* Dense tables so wide reports still fit A4 portrait. */
+    table {
+      font-size: 10px;
+      width: 100%;
+    }
+
+    th,
+    td {
+      padding: 0.25rem 0.4rem;
+      white-space: nowrap;
+    }
+
+    /* Long text columns may wrap; numbers should not break mid-value. */
+    th:last-child,
+    td:last-child {
+      white-space: normal;
+    }
+
+    a[href]::after {
+      content: '';
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

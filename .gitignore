@@ -1,0 +1,55 @@
+# Environment / secrets
+# Only *.example files are tracked; real .env files never are.
+.env
+.env.local
+.env.*.local
+.env.production
+!.env.example
+!backend/.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+.next/
+_next
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Logs
+*.log
+dev.log
+
+# Generated preview artifacts (design previews + static export shims)
+_preview.html
+_preview/
+
+# Database dumps and local data
+*.sql
+!backend/migrations/*.sql
+*.dump
+*.backup
+*.sqlite3
+*.sqlite
+pgdata/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Agent tooling (vendored skills + lockfile) — not application source
+.agents/
+skills-lock.json
