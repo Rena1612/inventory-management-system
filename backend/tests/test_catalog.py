@@ -340,6 +340,65 @@ async def test_archived_purchase_order_404s_by_direct_link(
     assert po_id not in [o["id"] for o in listed.json()["items"]]
 
 
+async def test_movement_delta_reaches_the_http_response(
+    auth: httpx.AsyncClient, product: uuid.UUID, location: uuid.UUID
+) -> None:
+    """Regression: MovementOut lacked `delta`, so FastAPI stripped it.
+
+    The service computed the signed effect but the response model did not
+    declare it, so every client received no `delta` at all. This asserts on
+    the serialised JSON, not the service return value.
+    """
+    await auth.post("/api/locations", json={"name": "Delta Destination", "type": "shelf"})
+    locations = (await auth.get("/api/locations", params={"limit": 100})).json()["items"]
+    destination_id = next(item["id"] for item in locations if item["name"] == "Delta Destination")
+
+    for kind, quantity in (("in", 30), ("out", 6), ("adjust", -3)):
+        created = await auth.post(
+            "/api/movements",
+            json={
+                "product_id": str(product),
+                "location_id": str(location),
+                "type": kind,
+                "quantity": str(quantity),
+            },
+        )
+        assert created.status_code == 201, created.text
+
+    moved = await auth.post(
+        "/api/movements/transfer",
+        json={
+            "product_id": str(product),
+            "from_location_id": str(location),
+            "to_location_id": destination_id,
+            "quantity": "5",
+        },
+    )
+    assert moved.status_code == 201, moved.text
+
+    listed = await auth.get("/api/movements", params={"limit": 100})
+    assert listed.status_code == 200
+    rows = listed.json()["items"]
+
+    # Present on the wire, not just in the service layer.
+    assert all("delta" in row for row in rows), "delta missing from the JSON payload"
+
+    by_type: dict[str, float] = {}
+    for row in rows:
+        by_type.setdefault(row["type"], float(row["delta"]))
+
+    assert by_type["in"] > 0
+    assert by_type["out"] < 0
+    assert by_type["transfer_out"] < 0
+    assert by_type["transfer_in"] > 0
+    assert by_type["adjust"] < 0
+
+    # `quantity` stays a positive magnitude; only `delta` carries the sign.
+    out_row = next(row for row in rows if row["type"] == "out")
+    assert float(out_row["quantity"]) == 6.0
+    assert float(out_row["delta"]) == -6.0
+
+
 async def test_unknown_ids_return_404(auth: httpx.AsyncClient) -> None:
     missing = str(uuid.uuid4())
     assert (await auth.patch(f"/api/suppliers/{missing}", json={"name": "X"})).status_code == 404

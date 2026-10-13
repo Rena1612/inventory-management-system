@@ -81,6 +81,11 @@ jobs:
       - name: Ruff
         run: ruff check app main.py scripts tests
 
+      - name: Type errors (ratchet)
+        # mypy is not clean. This fails only if the count rises above the
+        # recorded baseline, so the debt cannot silently grow.
+        run: python scripts/mypy_ratchet.py
+
       - name: Pytest
         run: pytest tests -q
 

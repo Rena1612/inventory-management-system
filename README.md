@@ -120,26 +120,18 @@ this file deliberately does not hardcode it.
 
 ## API surface
 
-The app registers **49 `/api` paths**, which is **48 operations plus one
-`/api/health`**:
+Counted from `openapi.json` as **(path, method) pairs** — a path serving both
+`GET` and `POST` is one path but two operations:
 
-| Prefix | Paths |
+| Measure | Count |
 | --- | --- |
-| `auth` | 4 |
-| `products` | 7 |
-| `movements` | 6 |
-| `locations` | 5 |
-| `suppliers` | 5 |
-| `categories` | 4 |
-| `purchase-orders` | 5 |
-| `reports` | 5 |
-| `orgs` | 7 |
-| `health` | 1 |
-
-Regenerate with:
+| Distinct `/api` paths | **32** |
+| `/api` (path, method) pairs | **49** |
+| — of which `/api/health` | 1 |
+| **Real API operations** | **48** |
 
 ```bash
-python -c "from main import app; print(len([r for r in app.routes if hasattr(r,'path') and r.path.startswith('/api')]))"
+python -c "from main import app; s=app.openapi(); print(len([(p,m) for p,o in s['paths'].items() for m in o if m in ('get','post','patch','put','delete')]))"
 ```
 
 Frontend checks:
@@ -226,11 +218,19 @@ A copied `.env.example` **must not** be able to boot a real instance:
 | Job | What it does |
 | --- | --- |
 | `gitleaks` | Scans full history for committed secrets |
-| `backend` | Postgres service → migrations → `ruff` → `pytest` |
+| `backend` | Postgres service → migrations → `ruff` → mypy ratchet → `pytest` |
 | `frontend` | `npm ci` → typecheck → build |
 
 Migrations run against an empty database every time, so a broken migration
 fails CI rather than a local machine.
+
+**mypy is enforced as a ratchet, not ignored.** It currently reports errors, so
+CI fails only when the count rises above `backend/baseline/mypy-baseline.txt`.
+That stops the debt growing without blocking work on unrelated fixes. Lower the
+baseline in the same commit that reduces the count.
+
+**Not yet covered:** `frontend/lib/format.test.ts` has no runner — CI does not
+execute it. A `test` script lands with the UI branch.
 
 Local pre-commit gitleaks:
 

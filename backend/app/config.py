@@ -18,7 +18,10 @@ MIN_SECRET_LENGTH = 32
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    environment: Environment = "dev"
+    # Fail closed: an unset ENVIRONMENT is treated as production, so forgetting
+    # to set it cannot silently disable the secret guards below. Local work
+    # opts in explicitly with ENVIRONMENT=dev.
+    environment: Environment = "production"
 
     database_url: str
     jwt_secret: str = Field(min_length=MIN_SECRET_LENGTH)
@@ -36,7 +39,8 @@ class Settings(BaseSettings):
     def refuse_placeholder_secret_outside_dev(self) -> Settings:
         """A copied .env.example must not be able to boot a real instance.
 
-        Dev keeps the placeholder so `cp .env.example .env` just works.
+        Dev is opted into explicitly, so reaching this guard always means
+        ENVIRONMENT was deliberately left unset or set to staging/production.
         """
         if self.environment == "dev":
             return self
@@ -45,9 +49,9 @@ class Settings(BaseSettings):
         if any(marker in lowered for marker in PLACEHOLDER_MARKERS):
             raise ValueError(
                 "JWT_SECRET still looks like the example placeholder. "
-                f"Generate a real one, e.g. "
-                f"python -c \"import secrets; print(secrets.token_urlsafe(48))\". "
-                f"(environment={self.environment})"
+                "Generate a real one, e.g. "
+                "python -c 'import secrets; print(secrets.token_urlsafe(48))'. "
+                "For local work set ENVIRONMENT=dev in backend/.env."
             )
         return self
 

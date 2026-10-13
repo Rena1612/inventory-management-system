@@ -7,8 +7,19 @@ import asyncpg
 from app.errors import conflict, not_found
 from app.models.movement import MovementIn, TransferIn
 
-MOVEMENT_SELECT = """
+# The effect of a movement on stock, defined once. 'out'/'transfer_out' are stored
+# as positive magnitudes (stock_movements_sign_by_type); 'adjust' is already a
+# signed delta. Clients render `delta` rather than re-deriving the sign themselves,
+# so the rule cannot drift between the ledger and the UI.
+DELTA_SQL = """
+    CASE WHEN sm.type IN ('out', 'transfer_out') THEN -sm.quantity
+         ELSE sm.quantity
+    END AS delta
+"""
+
+MOVEMENT_SELECT = f"""
     SELECT sm.id, sm.org_id, sm.product_id, sm.location_id, sm.type, sm.quantity,
+           {DELTA_SQL},
            sm.reference, sm.note, sm.user_id, sm.created_at,
            p.sku AS product_sku, p.name AS product_name,
            l.name AS location_name, u.email AS user_email
@@ -57,7 +68,7 @@ async def record_transfer(
     reference = payload.reference or f"transfer:{uuid.uuid4().hex[:12]}"
 
     rows = await conn.fetch(
-        """
+        f"""
         WITH moved AS (
             INSERT INTO stock_movements
                 (org_id, product_id, location_id, type, quantity, reference, note, user_id)
@@ -67,6 +78,7 @@ async def record_transfer(
             RETURNING *
         )
         SELECT sm.id, sm.org_id, sm.product_id, sm.location_id, sm.type, sm.quantity,
+               {DELTA_SQL},
                sm.reference, sm.note, sm.user_id, sm.created_at
         FROM moved sm
         ORDER BY sm.type  -- transfer_out first

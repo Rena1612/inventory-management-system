@@ -138,6 +138,62 @@ async def test_transfer_moves_quantity_between_locations(org_and_user, product, 
     assert await _on_hand(product) == 50.0
 
 
+async def test_delta_reports_the_effect_on_stock(org_and_user, product, location) -> None:
+    """Clients render `delta`; they must not re-derive the sign from the type.
+
+    `quantity` is a positive magnitude for in/out/transfer_* and a signed delta
+    for adjust (stock_movements_sign_by_type). `delta` is the only place that rule
+    should live.
+    """
+    org_id, user_id = org_and_user
+    destination = uuid.uuid4()
+    async with connection() as conn:
+        await conn.execute(
+            "INSERT INTO locations (id, org_id, name, type) VALUES ($1,$2,'Destination','shelf')",
+            destination,
+            org_id,
+        )
+        await movement_service.record_movement(
+            conn, org_id, user_id,
+            MovementIn(product_id=product, location_id=location, type="in", quantity=50),
+        )
+        await movement_service.record_movement(
+            conn, org_id, user_id,
+            MovementIn(product_id=product, location_id=location, type="out", quantity=8),
+        )
+        await movement_service.record_movement(
+            conn, org_id, user_id,
+            MovementIn(product_id=product, location_id=location, type="adjust", quantity=-2),
+        )
+        transferred = await movement_service.record_transfer(
+            conn, org_id, user_id,
+            TransferIn(
+                product_id=product,
+                from_location_id=location,
+                to_location_id=destination,
+                quantity=12,
+            ),
+        )
+
+    by_type = {row["type"]: float(row["delta"]) for row in transferred}
+    assert by_type == {"transfer_out": -12.0, "transfer_in": 12.0}
+
+    async with connection() as conn:
+        rows, _ = await movement_service.list_movements(
+            conn, org_id,
+            limit=50, offset=0,
+            product_id=product, location_id=None, movement_type=None,
+            date_from=None, date_to=None,
+        )
+
+    deltas = {row["type"]: float(row["delta"]) for row in rows}
+    assert deltas["in"] == 50.0
+    assert deltas["out"] == -8.0
+    assert deltas["adjust"] == -2.0
+    # The stored magnitude is untouched; only the new field carries the sign.
+    assert float(next(r for r in rows if r["type"] == "out")["quantity"]) == 8.0
+
+
 async def test_transfer_is_atomic_when_source_is_short(org_and_user, product, location) -> None:
     org_id, user_id = org_and_user
     destination = uuid.uuid4()

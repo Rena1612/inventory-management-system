@@ -7,7 +7,9 @@ from pydantic import ValidationError
 
 from app.config import PLACEHOLDER_MARKERS, Settings
 
-REAL_SECRET = "k3Jq8vTn2bWzXpL4mNc7dRf9sHy1uAe5Gi0oQ"  # 34 chars
+# Deliberately low-entropy and self-describing. A realistic-looking random
+# string here reads like a committed secret (and gitleaks correctly flags it).
+REAL_SECRET = "test-config-guard-value-0123456789"  # 34 chars
 EXAMPLE_SECRET = "change-me-to-a-random-64-character-string"
 
 
@@ -17,13 +19,32 @@ def make(**overrides: str) -> Settings:
         "jwt_secret": REAL_SECRET,
     }
     base.update(overrides)
-    return Settings(**base)  # type: ignore[arg-type]
+    # _env_file=None is essential: otherwise a developer's local backend/.env
+    # leaks into the test and silently supplies ENVIRONMENT.
+    return Settings(_env_file=None, **base)  # type: ignore[call-arg]
 
 
 def test_dev_accepts_the_placeholder() -> None:
     """cp .env.example .env must just work for a developer."""
     settings = make(jwt_secret=EXAMPLE_SECRET, environment="dev")
     assert settings.is_dev
+
+
+def test_unset_environment_fails_closed() -> None:
+    """ENVIRONMENT used to default to 'dev', so forgetting to set it in a
+    deployment silently disabled every guard. Unset must behave as production.
+    """
+    settings = make(jwt_secret=REAL_SECRET)  # no environment= argument
+    assert settings.environment == "production"
+    assert settings.is_dev is False
+
+    with pytest.raises(ValidationError, match="placeholder"):
+        make(jwt_secret=EXAMPLE_SECRET)  # no environment= argument
+
+
+def test_dev_is_opt_in_not_the_default() -> None:
+    """The example .env sets ENVIRONMENT=dev; the field default must not."""
+    assert Settings.model_fields["environment"].default == "production"
 
 
 @pytest.mark.parametrize("environment", ["staging", "production"])

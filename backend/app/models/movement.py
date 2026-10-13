@@ -51,6 +51,10 @@ class MovementOut(ORMModel):
     location_id: uuid.UUID
     type: MovementType
     quantity: Decimal
+    # Signed effect on stock, computed by movement_service.DELTA_SQL.
+    # Required (no default) so a query that forgets to project it fails loudly
+    # instead of silently serialising as 0.
+    delta: Decimal
     reference: str | None
     note: str | None
     user_id: uuid.UUID | None
