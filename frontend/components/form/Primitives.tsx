@@ -2,6 +2,11 @@
 
 import type { ReactNode } from 'react';
 
+import { Button } from '@/components/ui/Button';
+import { ErrorNote } from '@/components/ui/Notice';
+import { Panel } from '@/components/ui/Panel';
+import { SectionHead } from '@/components/ui/PageHeader';
+
 /** Shared field styling, matching the movement form. */
 export const fieldClass = 'field mt-1';
 
@@ -26,11 +31,7 @@ export function Field({ label, htmlFor, hint, children }: FieldProps) {
 
 export function FormError({ message }: { message: string | null }) {
   if (message === null) return null;
-  return (
-    <p role="alert" className="border border-stock-out bg-stock-out-bg px-3 py-2 text-[13px] text-stock-out">
-      {message}
-    </p>
-  );
+  return <ErrorNote>{message}</ErrorNote>;
 }
 
 interface ActionsProps {
@@ -44,23 +45,10 @@ interface ActionsProps {
 export function FormActions({ editing, busy, submitLabel, onSubmit, onCancelEdit }: ActionsProps) {
   return (
     <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={onSubmit}
-        disabled={busy}
-        className="btn-primary"
-      >
+      <Button variant="primary" onClick={onSubmit} disabled={busy}>
         {busy ? 'Saving…' : editing ? 'Save changes' : submitLabel}
-      </button>
-      {editing && (
-        <button
-          type="button"
-          onClick={onCancelEdit}
-          className="btn-ghost"
-        >
-          Cancel
-        </button>
-      )}
+      </Button>
+      {editing && <Button onClick={onCancelEdit}>Cancel</Button>}
     </div>
   );
 }
@@ -75,13 +63,12 @@ interface SectionProps {
 /** Consistent card wrapper for every create/edit form on a list page. */
 export function FormSection({ title, editing, createLabel, children }: SectionProps) {
   return (
-    <section className="panel print:hidden space-y-3 p-4">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 className="section-head">{editing === null ? createLabel : `Edit ${editing.label}`}</h2>
-        <span className="text-[11px] text-ink-3">{title}</span>
-      </div>
+    <Panel className="space-y-3 p-4 print:hidden">
+      <SectionHead aside={title}>
+        {editing === null ? createLabel : `Edit ${editing.label}`}
+      </SectionHead>
       {children}
-    </section>
+    </Panel>
   );
 }
 

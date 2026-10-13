@@ -6,6 +6,13 @@ import { ApiError, api } from '@/lib/api';
 import type { Category } from '@/lib/types';
 import { CategoryForm } from '@/components/categories/CategoryForm';
 import { useToast } from '@/components/Toast';
+import { Button } from '@/components/ui/Button';
+import { Table, TableNote, TablePending, Td, Th } from '@/components/ui/DataTable';
+import { ErrorNote } from '@/components/ui/Notice';
+import { Panel } from '@/components/ui/Panel';
+import { PageHeader } from '@/components/ui/PageHeader';
+
+const COLUMNS = 4;
 
 export default function CategoriesPage() {
   const toast = useToast();
@@ -55,59 +62,47 @@ export default function CategoriesPage() {
         onSaved={() => void load()}
       />
 
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-bold">Categories</h1>
-        <span className="text-sm text-muted-foreground">{items.length} total</span>
-      </div>
+      <PageHeader title="Categories" count={items.length} />
 
-      {error !== null && <p className="text-sm text-destructive">{error}</p>}
+      {error !== null && <ErrorNote>{error}</ErrorNote>}
 
-      <table className="w-full text-left text-sm">
-        <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
-          <tr>
-            <th className="py-2">Name</th>
-            <th className="py-2">Parent</th>
-            <th className="py-2">Description</th>
-            <th className="py-2 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((category) => (
-            <tr key={category.id} className="border-b">
-              <td className="py-2">{category.name}</td>
-              <td className="py-2 text-muted-foreground">
-                {items.find((item) => item.id === category.parent_id)?.name ?? '—'}
-              </td>
-              <td className="py-2 text-muted-foreground">{category.description ?? '—'}</td>
-              <td className="py-2 text-right">
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(category)}
-                    className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void archive(category)}
-                    className="rounded-md border px-2 py-1 text-xs text-destructive hover:bg-muted"
-                  >
-                    Archive
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-          {!loading && items.length === 0 && (
+      <Panel scroll>
+        <Table>
+          <thead>
             <tr>
-              <td colSpan={4} className="py-10 text-center text-muted-foreground">
-                No categories yet.
-              </td>
+              <Th>Name</Th>
+              <Th>Parent</Th>
+              <Th>Description</Th>
+              <Th align="right" className="pr-2">Actions</Th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((category) => (
+              <tr key={category.id}>
+                <Td>{category.name}</Td>
+                <Td className="text-ink-2">
+                  {items.find((item) => item.id === category.parent_id)?.name ?? '—'}
+                </Td>
+                <Td className="text-ink-2">{category.description ?? '—'}</Td>
+                <Td className="pr-2">
+                  <div className="flex justify-end gap-1.5">
+                    <Button size="sm" onClick={() => setEditing(category)}>
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="danger" onClick={() => void archive(category)}>
+                      Archive
+                    </Button>
+                  </div>
+                </Td>
+              </tr>
+            ))}
+            {loading && items.length === 0 && <TablePending colSpan={COLUMNS} />}
+            {!loading && items.length === 0 && (
+              <TableNote colSpan={COLUMNS}>No categories yet.</TableNote>
+            )}
+          </tbody>
+        </Table>
+      </Panel>
     </div>
   );
 }

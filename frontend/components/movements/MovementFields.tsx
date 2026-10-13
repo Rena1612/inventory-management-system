@@ -63,7 +63,7 @@ export function MovementFields({
   return (
     <>
       <form onSubmit={onScanSubmit} className="md:col-span-2">
-        <label htmlFor="scan" className="text-sm font-medium">
+        <label htmlFor="scan" className="label">
           Scan barcode or enter SKU
         </label>
         <input
@@ -107,9 +107,9 @@ export function MovementFields({
           ))}
         </select>
         {onHand !== null && (
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-[11px] text-ink-3">
             On hand here:{' '}
-            <span className="font-medium">{formatQuantity(onHand)}</span>
+            <span className="font-medium text-ink">{formatQuantity(onHand)}</span>
           </p>
         )}
       </Field>

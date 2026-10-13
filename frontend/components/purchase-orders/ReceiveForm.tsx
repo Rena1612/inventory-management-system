@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiError, api } from '@/lib/api';
-import { formatMoney, formatQuantity } from '@/lib/format';
+import { formatMoney } from '@/lib/format';
 import {
   outstandingQuantity,
   type Location,
@@ -21,6 +21,7 @@ import {
 } from '@/components/form/Primitives';
 import { ReceiveLine } from '@/components/purchase-orders/ReceiveLine';
 import { useToast } from '@/components/Toast';
+import { Button } from '@/components/ui/Button';
 
 interface Props {
   order: PurchaseOrderDetail;
@@ -172,7 +173,7 @@ export function ReceiveForm({ order, locations, onReceived }: Props) {
   if (pending.length === 0) {
     return (
       <FormSection title="Goods receipt" editing={null} createLabel="Goods receipt">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[13px] text-ink-2">
           Every line on this order has been received in full.
         </p>
       </FormSection>
@@ -181,14 +182,14 @@ export function ReceiveForm({ order, locations, onReceived }: Props) {
 
   return (
     <FormSection title="Goods receipt" editing={null} createLabel="Receive goods">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-[13px] text-ink-2">
         Defaulted to everything outstanding. Clear a line to skip it, or lower it for a
         short delivery. Locations fall back to each line&apos;s destination, then the
         default below.
       </p>
 
       <div className="space-y-2">
-        <div className="grid grid-cols-12 gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+        <div className="grid grid-cols-12 gap-2 text-[11px] text-ink-3">
           <span className="col-span-4">Product</span>
           <span className="col-span-2 text-right">Ordered</span>
           <span className="col-span-2 text-right">Received</span>
@@ -219,7 +220,7 @@ export function ReceiveForm({ order, locations, onReceived }: Props) {
             onChange={(event) => setDefaultLocation(event.target.value)}
             className={fieldClass}
           >
-            <option value="">Use each line's destination</option>
+            <option value="">Use each line&apos;s destination</option>
             {locations.map((location) => (
               <option key={location.id} value={location.id}>
                 {location.name}
@@ -239,17 +240,17 @@ export function ReceiveForm({ order, locations, onReceived }: Props) {
         </Field>
       </div>
 
-      <p className="text-sm" aria-live="polite">
+      <p className="text-[13px]" aria-live="polite">
         {willReceive.length === 0 ? (
-          <span className="text-muted-foreground">Nothing selected to receive yet.</span>
+          <span className="text-ink-2">Nothing selected to receive yet.</span>
         ) : (
-          <span className="text-muted-foreground">
+          <span className="text-ink-2">
             Will receive{' '}
-            <span className="font-medium text-foreground">
+            <span className="font-medium text-ink">
               {willReceive.length} {willReceive.length === 1 ? 'line' : 'lines'}
             </span>{' '}
             worth{' '}
-            <span className="font-medium text-foreground">
+            <span className="font-medium tabular-nums text-ink">
               {formatMoney(String(receiveValue), order.currency)}
             </span>
           </span>
@@ -259,22 +260,12 @@ export function ReceiveForm({ order, locations, onReceived }: Props) {
       <FormError message={error} />
 
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => void submit()}
-          disabled={busy || willReceive.length === 0}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-        >
+        <Button variant="primary" onClick={() => void submit()} disabled={busy || willReceive.length === 0}>
           {busy ? 'Receiving…' : 'Receive goods'}
-        </button>
-        <button
-          type="button"
-          onClick={resetToOutstanding}
-          disabled={busy}
-          className="rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
-        >
+        </Button>
+        <Button onClick={resetToOutstanding} disabled={busy}>
           Reset to all outstanding
-        </button>
+        </Button>
       </div>
     </FormSection>
   );

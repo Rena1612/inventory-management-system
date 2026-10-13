@@ -6,6 +6,13 @@ import { ApiError, api } from '@/lib/api';
 import type { Page, Supplier } from '@/lib/types';
 import { SupplierForm } from '@/components/suppliers/SupplierForm';
 import { useToast } from '@/components/Toast';
+import { Button } from '@/components/ui/Button';
+import { Table, TableNote, TablePending, Td, Th } from '@/components/ui/DataTable';
+import { ErrorNote } from '@/components/ui/Notice';
+import { Panel } from '@/components/ui/Panel';
+import { PageHeader } from '@/components/ui/PageHeader';
+
+const COLUMNS = 5;
 
 export default function SuppliersPage() {
   const toast = useToast();
@@ -57,67 +64,58 @@ export default function SuppliersPage() {
         onSaved={() => void load()}
       />
 
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-bold">Suppliers</h1>
-        <span className="text-sm text-muted-foreground">{items.length} total</span>
-      </div>
+      <PageHeader title="Suppliers" count={items.length} />
 
       <input
         type="search"
         value={query}
+        aria-label="Search suppliers"
         placeholder="Search suppliers…"
         onChange={(event) => setQuery(event.target.value)}
-        className="w-full max-w-sm rounded-md border px-3 py-2 text-sm"
+        className="field w-full max-w-xs"
       />
 
-      {error !== null && <p className="text-sm text-destructive">{error}</p>}
+      {error !== null && <ErrorNote>{error}</ErrorNote>}
 
-      <table className="w-full text-left text-sm">
-        <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
-          <tr>
-            <th className="py-2">Name</th>
-            <th className="py-2">Email</th>
-            <th className="py-2">Phone</th>
-            <th className="py-2">Address</th>
-            <th className="py-2 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((supplier) => (
-            <tr key={supplier.id} className="border-b">
-              <td className="py-2">{supplier.name}</td>
-              <td className="py-2 text-muted-foreground">{supplier.email ?? '—'}</td>
-              <td className="py-2 text-muted-foreground">{supplier.phone ?? '—'}</td>
-              <td className="py-2 text-muted-foreground">{supplier.address ?? '—'}</td>
-              <td className="py-2 text-right">
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(supplier)}
-                    className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void archive(supplier)}
-                    className="rounded-md border px-2 py-1 text-xs text-destructive hover:bg-muted"
-                  >
-                    Archive
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-          {!loading && items.length === 0 && (
+      <Panel scroll>
+        <Table>
+          <thead>
             <tr>
-              <td colSpan={5} className="py-10 text-center text-muted-foreground">
-                {query === '' ? 'No suppliers yet.' : 'No suppliers match.'}
-              </td>
+              <Th>Name</Th>
+              <Th>Email</Th>
+              <Th>Phone</Th>
+              <Th>Address</Th>
+              <Th align="right" className="pr-2">Actions</Th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((supplier) => (
+              <tr key={supplier.id}>
+                <Td>{supplier.name}</Td>
+                <Td className="text-ink-2">{supplier.email ?? '—'}</Td>
+                <Td className="text-ink-2">{supplier.phone ?? '—'}</Td>
+                <Td className="text-ink-2">{supplier.address ?? '—'}</Td>
+                <Td className="pr-2">
+                  <div className="flex justify-end gap-1.5">
+                    <Button size="sm" onClick={() => setEditing(supplier)}>
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="danger" onClick={() => void archive(supplier)}>
+                      Archive
+                    </Button>
+                  </div>
+                </Td>
+              </tr>
+            ))}
+            {loading && items.length === 0 && <TablePending colSpan={COLUMNS} />}
+            {!loading && items.length === 0 && (
+              <TableNote colSpan={COLUMNS}>
+                {query === '' ? 'No suppliers yet.' : 'No suppliers match.'}
+              </TableNote>
+            )}
+          </tbody>
+        </Table>
+      </Panel>
     </div>
   );
 }

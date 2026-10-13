@@ -57,10 +57,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={toast.id}
             type="button"
             onClick={() => dismiss(toast.id)}
-            className={`rounded-md border px-4 py-3 text-left text-sm shadow-sm ${
+            className={`rounded border px-3 py-2 text-left text-[13px] ${
               toast.tone === 'error'
-                ? 'border-destructive bg-destructive text-destructive-foreground'
-                : 'bg-primary text-primary-foreground'
+                ? 'border-stock-out bg-stock-out text-stock-out'
+                : 'border-ink bg-ink text-white'
             }`}
           >
             {toast.message}

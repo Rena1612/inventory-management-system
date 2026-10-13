@@ -4,12 +4,19 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ApiError, api } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
-import type { Location, Page, PurchaseOrder } from '@/lib/types';
+import type { Page, PurchaseOrder } from '@/lib/types';
 import { StatusBadge } from '@/components/purchase-orders/StatusBadge';
 import { PurchaseOrderForm } from '@/components/purchase-orders/PurchaseOrderForm';
 import { useToast } from '@/components/Toast';
+import { Button } from '@/components/ui/Button';
+import { Table, TableNote, TablePending, Td, Th } from '@/components/ui/DataTable';
+import { ErrorNote } from '@/components/ui/Notice';
+import { Panel } from '@/components/ui/Panel';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 const STATUSES = ['draft', 'open', 'partial', 'received', 'cancelled'] as const;
+
+const COLUMNS = 6;
 
 export default function PurchaseOrdersPage() {
   const toast = useToast();
@@ -58,16 +65,13 @@ export default function PurchaseOrdersPage() {
     <div className="space-y-6">
       <PurchaseOrderForm />
 
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-bold">Purchase Orders</h1>
-        <span className="text-sm text-muted-foreground">{total} total</span>
-      </div>
+      <PageHeader title="Purchase Orders" count={total} />
 
       <select
         value={status}
         onChange={(event) => setStatus(event.target.value)}
         aria-label="Filter by status"
-        className="rounded-md border px-3 py-2 text-sm"
+        className="field w-48"
       >
         <option value="">All statuses</option>
         {STATUSES.map((value) => (
@@ -77,53 +81,55 @@ export default function PurchaseOrdersPage() {
         ))}
       </select>
 
-      {error !== null && <p className="text-sm text-destructive">{error}</p>}
+      {error !== null && <ErrorNote>{error}</ErrorNote>}
 
-      <table className="w-full text-left text-sm">
-        <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
-          <tr>
-            <th className="py-2">Reference</th>
-            <th className="py-2">Supplier</th>
-            <th className="py-2">Status</th>
-            <th className="py-2 text-right">Items</th>
-            <th className="py-2 text-right">Total</th>
-            <th className="py-2 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((order) => (
-            <tr key={order.id} className="border-b">
-              <td className="py-2">
-                <a href={`/purchase-orders/${order.id}`} className="font-mono text-xs underline">
-                  {order.reference ?? order.id.slice(0, 8)}
-                </a>
-              </td>
-              <td className="py-2">{order.supplier_name ?? '—'}</td>
-              <td className="py-2">
-                <StatusBadge status={order.status} />
-              </td>
-              <td className="py-2 text-right">{order.item_count}</td>
-              <td className="py-2 text-right">{formatMoney(order.total, order.currency)}</td>
-              <td className="py-2 text-right">
-                <button
-                  type="button"
-                  onClick={() => void archive(order)}
-                  className="rounded-md border px-2 py-1 text-xs text-destructive hover:bg-muted"
-                >
-                  Archive
-                </button>
-              </td>
-            </tr>
-          ))}
-          {!loading && items.length === 0 && (
+      <Panel scroll>
+        <Table>
+          <thead>
             <tr>
-              <td colSpan={6} className="py-10 text-center text-muted-foreground">
-                {status === '' ? 'No purchase orders yet.' : 'No purchase orders match.'}
-              </td>
+              <Th>Reference</Th>
+              <Th>Supplier</Th>
+              <Th>Status</Th>
+              <Th align="right">Items</Th>
+              <Th align="right">Total</Th>
+              <Th align="right" className="pr-2">Actions</Th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((order) => (
+              <tr key={order.id}>
+                <Td>
+                  <a
+                    href={`/purchase-orders/${order.id}`}
+                    className="ref underline hover:text-accent"
+                  >
+                    {order.reference ?? order.id.slice(0, 8)}
+                  </a>
+                </Td>
+                <Td>{order.supplier_name ?? '—'}</Td>
+                <Td>
+                  <StatusBadge status={order.status} />
+                </Td>
+                <Td align="right">{order.item_count}</Td>
+                <Td align="right">{formatMoney(order.total, order.currency)}</Td>
+                <Td className="pr-2">
+                  <div className="flex justify-end gap-1.5">
+                    <Button size="sm" variant="danger" onClick={() => void archive(order)}>
+                      Archive
+                    </Button>
+                  </div>
+                </Td>
+              </tr>
+            ))}
+            {loading && items.length === 0 && <TablePending colSpan={COLUMNS} />}
+            {!loading && items.length === 0 && (
+              <TableNote colSpan={COLUMNS}>
+                {status === '' ? 'No purchase orders yet.' : 'No purchase orders match.'}
+              </TableNote>
+            )}
+          </tbody>
+        </Table>
+      </Panel>
     </div>
   );
 }

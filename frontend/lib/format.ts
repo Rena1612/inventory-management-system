@@ -47,17 +47,9 @@ export const MOVEMENT_LABEL: Record<MovementType, string> = {
 };
 
 /**
- * Effect of a movement on stock. `in`/`out`/`transfer_*` are stored as positive
- * magnitudes (see the stock_movements check constraint); only `adjust` is already
- * a signed delta.
+ * Effect of a movement on stock, as reported by the API in `delta`. The ledger
+ * owns the sign rule; this side only formats the number it is handed.
  */
-export function movementDelta(type: string, quantity: string | number): number {
-  const parsed = typeof quantity === 'number' ? quantity : Number.parseFloat(quantity);
-  if (Number.isNaN(parsed)) return 0;
-  return type === 'out' || type === 'transfer_out' ? -parsed : parsed;
-}
-
-/** Signed figure with a true minus, so columns of deltas align in a mono face. */
 export function formatDelta(value: number): string {
   const rounded = Math.round(value * 1000) / 1000;
   const sign = rounded < 0 ? '−' : '+';

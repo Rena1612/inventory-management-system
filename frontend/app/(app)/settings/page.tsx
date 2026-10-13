@@ -2,9 +2,16 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { ApiError, api } from '@/lib/api';
-import { formatDate, formatMoney, formatQuantity } from '@/lib/format';
+import { api } from '@/lib/api';
+import { formatDate } from '@/lib/format';
 import type { Organization } from '@/lib/types';
+import { Button } from '@/components/ui/Button';
+import { Table, TableNote, Td, Th } from '@/components/ui/DataTable';
+import { LoadingNote, PageError } from '@/components/ui/Notice';
+import { Figure, FigureStrip, Panel } from '@/components/ui/Panel';
+import { PageHeader, SectionHead } from '@/components/ui/PageHeader';
+
+const MEMBER_COLUMNS = 3;
 
 interface Stats {
   plan: string;
@@ -25,7 +32,7 @@ export default function SettingsPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [apiKey, setApiKey] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -43,7 +50,7 @@ export default function SettingsPage() {
         setMembers([]);
       }
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Failed to load settings');
+      setError(caught);
     }
   }, []);
 
@@ -56,89 +63,83 @@ export default function SettingsPage() {
     setApiKey(Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join(''));
   }
 
-  if (error !== null) return <p className="text-sm text-destructive">{error}</p>;
-  if (org === null || stats === null) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (error !== null) {
+    return (
+      <PageError error={error} fallback="Settings could not be loaded." onRetry={load} />
+    );
   }
+  if (org === null || stats === null) return <LoadingNote />;
+
+  const productLimit =
+    stats.limits.products === null ? String(stats.usage.products) : `${stats.usage.products} / ${stats.limits.products}`;
+  const locationLimit =
+    stats.limits.locations === null ? String(stats.usage.locations) : `${stats.usage.locations} / ${stats.limits.locations}`;
 
   return (
-    <div className="space-y-10">
-      <h1 className="text-2xl font-bold">Settings</h1>
+    <div className="space-y-6">
+      <PageHeader title="Settings" />
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Organization</h2>
-        <dl className="grid max-w-md grid-cols-3 gap-y-2 text-sm">
-          <dt className="text-muted-foreground">Name</dt>
-          <dd className="col-span-2">{org.name}</dd>
-          <dt className="text-muted-foreground">Slug</dt>
-          <dd className="col-span-2 font-mono text-xs">{org.slug}</dd>
-          <dt className="text-muted-foreground">Created</dt>
-          <dd className="col-span-2">{formatDate(org.created_at)}</dd>
-        </dl>
+        <SectionHead>Organization</SectionHead>
+        <Panel>
+          <dl className="grid max-w-md grid-cols-3 gap-y-2 px-4 py-3 text-[13px]">
+            <dt className="text-ink-2">Name</dt>
+            <dd className="col-span-2">{org.name}</dd>
+            <dt className="text-ink-2">Slug</dt>
+            <dd className="ref col-span-2">{org.slug}</dd>
+            <dt className="text-ink-2">Created</dt>
+            <dd className="col-span-2">{formatDate(org.created_at)}</dd>
+          </dl>
+        </Panel>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Plan &amp; usage</h2>
-        <p className="text-sm text-muted-foreground">Current plan: {stats.plan}</p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-lg border p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Products</p>
-            <p className="mt-2 text-xl font-semibold">
-              {stats.usage.products}
-              <span className="text-sm font-normal text-muted-foreground">
-                {stats.limits.products === null ? '' : ` / ${stats.limits.products}`}
-              </span>
-            </p>
-          </div>
-          <div className="rounded-lg border p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Locations</p>
-            <p className="mt-2 text-xl font-semibold">
-              {stats.usage.locations}
-              <span className="text-sm font-normal text-muted-foreground">
-                {stats.limits.locations === null ? '' : ` / ${stats.limits.locations}`}
-              </span>
-            </p>
-          </div>
-        </div>
+        <SectionHead aside={`Current plan: ${stats.plan}`}>Plan &amp; usage</SectionHead>
+        <FigureStrip>
+          <Figure label="Products" value={productLimit} />
+          <Figure label="Locations" value={locationLimit} />
+        </FigureStrip>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Members</h2>
-        <table className="w-full max-w-2xl text-left text-sm">
-          <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="py-2">Email</th>
-              <th className="py-2">Name</th>
-              <th className="py-2">Role</th>
-            </tr>
-          </thead>
-          <tbody>
-            {members.map((member) => (
-              <tr key={member.id} className="border-b">
-                <td className="py-2">{member.email}</td>
-                <td className="py-2 text-muted-foreground">{member.full_name ?? '—'}</td>
-                <td className="py-2">{member.role}</td>
+        <SectionHead>
+          Members
+          <span className="ml-2 tabular-nums text-ink-3">{members.length}</span>
+        </SectionHead>
+        <Panel scroll>
+          <Table className="max-w-2xl">
+            <thead>
+              <tr>
+                <Th>Email</Th>
+                <Th>Name</Th>
+                <Th>Role</Th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {members.map((member) => (
+                <tr key={member.id}>
+                  <Td>{member.email}</Td>
+                  <Td className="text-ink-2">{member.full_name ?? '—'}</Td>
+                  <Td>{member.role}</Td>
+                </tr>
+              ))}
+              {members.length === 0 && (
+                <TableNote colSpan={MEMBER_COLUMNS}>No other members yet.</TableNote>
+              )}
+            </tbody>
+          </Table>
+        </Panel>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">API access</h2>
-        <p className="text-sm text-muted-foreground">
-          API keys are available on the Business plan.
-        </p>
+        <SectionHead>API access</SectionHead>
+        <p className="text-[13px] text-ink-2">API keys are available on the Business plan.</p>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={generateKey}
-            className="rounded-md border px-3 py-1.5 text-sm"
-          >
-            Generate key
-          </button>
+          <Button onClick={generateKey}>Generate key</Button>
           {apiKey !== null && (
-            <code className="rounded bg-muted px-2 py-1 font-mono text-xs">{apiKey}</code>
+            <code className="rounded bg-sunk px-2 py-1 font-mono text-[11px] text-ink-2">
+              {apiKey}
+            </code>
           )}
         </div>
       </section>

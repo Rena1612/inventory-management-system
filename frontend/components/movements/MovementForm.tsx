@@ -12,6 +12,8 @@ import {
   type MovementMode,
 } from '@/components/movements/MovementFields';
 import { useToast } from '@/components/Toast';
+import { Button } from '@/components/ui/Button';
+import { Panel } from '@/components/ui/Panel';
 
 interface Props {
   /** Called after a successful write so the list can refresh. */
@@ -161,23 +163,19 @@ export function MovementForm({ onRecorded }: Props) {
   }
 
   return (
-    <section className="print:hidden space-y-4 rounded-lg border p-4">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold">Record movement</h2>
+    <Panel className="print:hidden space-y-3 p-4">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="section-head">Record movement</h2>
         <div className="flex gap-1">
           {MOVEMENT_MODES.map((option) => (
-            <button
+            <Button
               key={option.value}
-              type="button"
+              size="sm"
+              variant={mode === option.value ? 'primary' : 'ghost'}
               onClick={() => setMode(option.value)}
-              className={`rounded-md px-3 py-1.5 text-sm ${
-                mode === option.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'border text-muted-foreground hover:bg-muted'
-              }`}
             >
               {option.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -211,20 +209,15 @@ export function MovementForm({ onRecorded }: Props) {
       <FormError message={error} />
 
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => void submit()}
-          disabled={busy}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-        >
+        <Button variant="primary" onClick={() => void submit()} disabled={busy}>
           {busy ? 'Recording…' : 'Record movement'}
-        </button>
+        </Button>
         {product !== null && (
-          <span className="text-sm text-muted-foreground">
-            {product.sku} — {product.name}
+          <span className="text-[13px] text-ink-2">
+            <span className="ref">{product.sku}</span> {product.name}
           </span>
         )}
       </div>
-    </section>
+    </Panel>
   );
 }

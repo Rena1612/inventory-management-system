@@ -113,6 +113,8 @@ export interface Movement {
   location_id: string;
   type: MovementType;
   quantity: string;
+  /** Signed effect on stock. Computed by the ledger; never derive it from `type`. */
+  delta: string;
   reference: string | null;
   note: string | null;
   user_id: string | null;

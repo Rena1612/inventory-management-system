@@ -1,11 +1,18 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { ApiError, api } from '@/lib/api';
+import { api } from '@/lib/api';
 import { formatDateTime, formatMoney, formatQuantity } from '@/lib/format';
 import type { Movement, Page, ProductDetail } from '@/lib/types';
+import { Table, TableNote, Td, Th } from '@/components/ui/DataTable';
+import { LoadingNote, PageError } from '@/components/ui/Notice';
+import { Figure, FigureStrip, Panel } from '@/components/ui/Panel';
+import { PageHeader, SectionHead } from '@/components/ui/PageHeader';
+
+const STOCK_COLUMNS = 5;
+const HISTORY_COLUMNS = 6;
 
 export default function ProductDetailPage() {
   const params = useParams<{ id: string }>();
@@ -13,116 +20,129 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [history, setHistory] = useState<Movement[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const [detail, movements] = await Promise.all([
-          api<ProductDetail>(`/api/products/${productId}`),
-          api<Page<Movement>>(`/api/movements/product/${productId}`, {
-            query: { limit: 100 },
-          }),
-        ]);
-        setProduct(detail);
-        setHistory(movements.items);
-      } catch (caught) {
-        setError(caught instanceof ApiError ? caught.message : 'Failed to load product');
-      }
-    })();
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const [detail, movements] = await Promise.all([
+        api<ProductDetail>(`/api/products/${productId}`),
+        api<Page<Movement>>(`/api/movements/product/${productId}`, {
+          query: { limit: 100 },
+        }),
+      ]);
+      setProduct(detail);
+      setHistory(movements.items);
+    } catch (caught) {
+      setError(caught);
+    }
   }, [productId]);
 
-  if (error !== null) return <p className="text-sm text-destructive">{error}</p>;
-  if (product === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (error !== null) {
+    return <PageError error={error} fallback="The product could not be loaded." onRetry={load} />;
+  }
+  if (product === null) return <LoadingNote />;
+
+  const figures = [
+    { label: 'On hand', value: formatQuantity(product.total_quantity) },
+    { label: 'Cost', value: formatMoney(product.cost_price) },
+    { label: 'Sell', value: formatMoney(product.sell_price) },
+    { label: 'Reorder point', value: formatQuantity(product.reorder_point) },
+  ];
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">{product.name}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          <span className="font-mono">{product.sku}</span>
-          {product.category_name !== null && ` · ${product.category_name}`}
-          {product.supplier_name !== null && ` · ${product.supplier_name}`}
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title={product.name} />
+      <p className="text-[13px] text-ink-2">
+        <span className="ref">{product.sku}</span>
+        {product.category_name !== null && ` · ${product.category_name}`}
+        {product.supplier_name !== null && ` · ${product.supplier_name}`}
+      </p>
 
-      <section className="grid gap-4 sm:grid-cols-4">
-        {[
-          { label: 'On hand', value: formatQuantity(product.total_quantity) },
-          { label: 'Cost', value: formatMoney(product.cost_price) },
-          { label: 'Sell', value: formatMoney(product.sell_price) },
-          { label: 'Reorder point', value: formatQuantity(product.reorder_point) },
-        ].map((card) => (
-          <div key={card.label} className="rounded-lg border p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{card.label}</p>
-            <p className="mt-2 text-xl font-semibold">{card.value}</p>
-          </div>
+      <FigureStrip>
+        {figures.map((figure) => (
+          <Figure key={figure.label} label={figure.label} value={figure.value} />
         ))}
-      </section>
+      </FigureStrip>
 
-      <section>
-        <h2 className="text-lg font-semibold">Stock by location</h2>
-        <table className="mt-4 w-full text-left text-sm">
-          <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="py-2">Location</th>
-              <th className="py-2">Type</th>
-              <th className="py-2 text-right">Quantity</th>
-              <th className="py-2 text-right">Reserved</th>
-              <th className="py-2 text-right">Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {product.stock.map((level) => (
-              <tr key={level.location_id} className="border-b">
-                <td className="py-2">{level.location_name}</td>
-                <td className="py-2">{level.location_type ?? '—'}</td>
-                <td className="py-2 text-right">{formatQuantity(level.quantity)}</td>
-                <td className="py-2 text-right">{formatQuantity(level.reserved)}</td>
-                <td className="py-2 text-right text-muted-foreground">
-                  {formatDateTime(level.updated_at)}
-                </td>
-              </tr>
-            ))}
-            {product.stock.length === 0 && (
+      <section className="space-y-2">
+        <SectionHead>
+          Stock by location
+          <span className="ml-2 tabular-nums text-ink-3">{product.stock.length}</span>
+        </SectionHead>
+        <Panel scroll>
+          <Table>
+            <thead>
               <tr>
-                <td colSpan={5} className="py-6 text-center text-muted-foreground">
-                  No stock recorded at any location.
-                </td>
+                <Th>Location</Th>
+                <Th>Type</Th>
+                <Th align="right">Quantity</Th>
+                <Th align="right">Reserved</Th>
+                <Th align="right">Updated</Th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {product.stock.map((level) => (
+                <tr key={level.location_id}>
+                  <Td>{level.location_name}</Td>
+                  <Td className="text-ink-2">{level.location_type ?? '—'}</Td>
+                  <Td align="right">{formatQuantity(level.quantity)}</Td>
+                  <Td align="right">{formatQuantity(level.reserved)}</Td>
+                  <Td align="right" className="text-ink-2">
+                    {formatDateTime(level.updated_at)}
+                  </Td>
+                </tr>
+              ))}
+              {product.stock.length === 0 && (
+                <TableNote colSpan={STOCK_COLUMNS}>No stock recorded at any location.</TableNote>
+              )}
+            </tbody>
+          </Table>
+        </Panel>
       </section>
 
-      <section>
-        <h2 className="text-lg font-semibold">Movement history</h2>
-        <table className="mt-4 w-full text-left text-sm">
-          <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="py-2">When</th>
-              <th className="py-2">Type</th>
-              <th className="py-2">Location</th>
-              <th className="py-2">User</th>
-              <th className="py-2 text-right">Quantity</th>
-              <th className="py-2 text-right">Reference</th>
-            </tr>
-          </thead>
-          <tbody>
-            {history.map((movement) => (
-              <tr key={movement.id} className="border-b">
-                <td className="py-2">{formatDateTime(movement.created_at)}</td>
-                <td className="py-2">{movement.type}</td>
-                <td className="py-2">{movement.location_name ?? '—'}</td>
-                <td className="py-2">{movement.user_email ?? 'system'}</td>
-                <td className="py-2 text-right">{formatQuantity(movement.quantity)}</td>
-                <td className="py-2 text-right text-muted-foreground">
-                  {movement.reference ?? '—'}
-                </td>
+      <section className="space-y-2">
+        <SectionHead>
+          Movement history
+          <span className="ml-2 tabular-nums text-ink-3">{history.length}</span>
+        </SectionHead>
+        <Panel scroll>
+          <Table>
+            <thead>
+              <tr>
+                <Th>When</Th>
+                <Th>Type</Th>
+                <Th>Location</Th>
+                <Th>User</Th>
+                <Th align="right">Quantity</Th>
+                <Th align="right">Reference</Th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {history.map((movement) => (
+                <tr key={movement.id}>
+                  <Td className="whitespace-nowrap text-ink-2">
+                    {formatDateTime(movement.created_at)}
+                  </Td>
+                  <Td className="text-ink-2">{movement.type}</Td>
+                  <Td>{movement.location_name ?? '—'}</Td>
+                  <Td className="text-ink-2">{movement.user_email ?? 'system'}</Td>
+                  <Td align="right">{formatQuantity(movement.quantity)}</Td>
+                  <Td align="right" className="ref">
+                    {movement.reference ?? '—'}
+                  </Td>
+                </tr>
+              ))}
+              {history.length === 0 && (
+                <TableNote colSpan={HISTORY_COLUMNS}>No movements recorded yet.</TableNote>
+              )}
+            </tbody>
+          </Table>
+        </Panel>
       </section>
     </div>
   );

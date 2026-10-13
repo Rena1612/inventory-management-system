@@ -1,5 +1,8 @@
 import Link from 'next/link';
 
+import { Panel } from '@/components/ui/Panel';
+import { SectionHead } from '@/components/ui/PageHeader';
+
 const FEATURES = [
   {
     title: 'Append-only stock ledger',
@@ -28,47 +31,46 @@ const PLANS = [
 
 export default function LandingPage() {
   return (
-    <main className="mx-auto max-w-5xl px-6 py-20">
-      <section className="text-center">
-        <h1 className="text-5xl font-bold tracking-tight">Inventory Management System</h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
+    <main className="mx-auto max-w-5xl px-6 py-16">
+      <section className="max-w-2xl">
+        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink">
+          Inventory Management System
+        </h1>
+        <p className="mt-4 text-[15px] leading-relaxed text-ink-2">
           Multi-tenant stock tracking built on Postgres. An immutable movement ledger, warehouse
           hierarchies, purchase orders and valuation reporting.
         </p>
-        <div className="mt-10 flex justify-center gap-4">
-          <Link
-            href="/signup"
-            className="rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground"
-          >
+        <div className="mt-7 flex flex-wrap gap-2">
+          <Link href="/signup" className="btn-primary">
             Get started
           </Link>
-          <Link
-            href="/login"
-            className="rounded-md border px-6 py-3 text-sm font-medium"
-          >
+          <Link href="/login" className="btn-ghost">
             Sign in
           </Link>
         </div>
       </section>
 
-      <section className="mt-24 grid gap-8 sm:grid-cols-2">
-        {FEATURES.map((feature) => (
-          <div key={feature.title} className="rounded-lg border p-6">
-            <h2 className="font-semibold">{feature.title}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{feature.body}</p>
-          </div>
-        ))}
+      <section className="mt-14 space-y-3">
+        <SectionHead>What you get</SectionHead>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {FEATURES.map((feature) => (
+            <Panel key={feature.title} className="space-y-1.5 p-4">
+              <h2 className="text-[13px] font-medium text-ink">{feature.title}</h2>
+              <p className="text-[13px] leading-relaxed text-ink-2">{feature.body}</p>
+            </Panel>
+          ))}
+        </div>
       </section>
 
-      <section className="mt-24">
-        <h2 className="text-center text-3xl font-bold">Pricing</h2>
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mt-14 space-y-3">
+        <SectionHead>Pricing</SectionHead>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {PLANS.map((plan) => (
-            <div key={plan.name} className="rounded-lg border p-6 text-center">
-              <h3 className="font-semibold">{plan.name}</h3>
-              <p className="mt-2 text-2xl font-bold">{plan.price}</p>
-              <p className="mt-2 text-sm text-muted-foreground">{plan.detail}</p>
-            </div>
+            <Panel key={plan.name} className="space-y-1.5 p-4">
+              <h3 className="text-[13px] font-medium text-ink">{plan.name}</h3>
+              <p className="text-xl font-medium tabular-nums text-ink">{plan.price}</p>
+              <p className="text-[13px] text-ink-2">{plan.detail}</p>
+            </Panel>
           ))}
         </div>
       </section>

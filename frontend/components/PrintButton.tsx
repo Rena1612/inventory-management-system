@@ -1,6 +1,7 @@
 'use client';
 
 import { formatDateTime } from '@/lib/format';
+import { Button } from '@/components/ui/Button';
 
 interface PrintButtonProps {
   /** Printed above the report on paper. */
@@ -18,21 +19,19 @@ export function PrintButton({ title, generatedAt, organizationName }: PrintButto
   return (
     <>
       <div className="hidden print:block">
-        <h1 className="text-lg font-semibold">{title}</h1>
-        <p className="text-xs text-muted-foreground">
-          {organizationName ? `${organizationName} · ` : ''}
+        <h1 className="text-[15px] font-semibold text-ink">{title}</h1>
+        {organizationName !== null && organizationName !== undefined && (
+          <p className="text-[11px] text-ink-2">{organizationName}</p>
+        )}
+        <p className="text-[11px] text-ink-2">
           Generated {formatDateTime(generatedAt ?? null)}
         </p>
         <hr className="my-3" />
       </div>
 
-      <button
-        type="button"
-        onClick={() => window.print()}
-        className="print:hidden rounded-md border px-3 py-2 text-sm hover:bg-muted"
-      >
+      <Button className="print:hidden" onClick={() => window.print()}>
         Print / Save as PDF
-      </button>
+      </Button>
     </>
   );
 }

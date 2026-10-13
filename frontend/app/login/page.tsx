@@ -6,6 +6,9 @@ import { Suspense, useState, type FormEvent } from 'react';
 
 import { ApiError, api, setToken } from '@/lib/api';
 import type { AuthResponse } from '@/lib/types';
+import { Button } from '@/components/ui/Button';
+import { ErrorNote } from '@/components/ui/Notice';
+import { Panel } from '@/components/ui/Panel';
 
 interface Credentials {
   email: string;
@@ -16,7 +19,7 @@ export default function LoginPage() {
   // useSearchParams opts the subtree out of static prerendering, so it needs a
   // Suspense boundary for the build to succeed.
   return (
-    <Suspense fallback={<main className="p-8 text-sm text-muted-foreground">Loading…</main>}>
+    <Suspense fallback={<main className="p-8 text-[13px] text-ink-3">Loading…</main>}>
       <LoginForm />
     </Suspense>
   );
@@ -51,64 +54,60 @@ function LoginForm() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
-      <h1 className="text-2xl font-bold">Sign in</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        No account?{' '}
-        <Link href="/signup" className="underline">
-          Create one
-        </Link>
-      </p>
-
-      <form onSubmit={onSubmit} className="mt-8 space-y-4">
-        {expired && (
-          <p className="rounded-md border px-3 py-2 text-sm">
-            Your session expired. Please sign in again.
-          </p>
-        )}
-
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+      <Panel className="space-y-4 p-5">
         <div>
-          <label htmlFor="email" className="text-sm font-medium">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            required
-            value={form.email}
-            onChange={(event) => setForm({ ...form, email: event.target.value })}
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-          />
+          <h1 className="text-[15px] font-semibold text-ink">Sign in</h1>
+          <p className="mt-1 text-[13px] text-ink-2">
+            No account?{' '}
+            <Link href="/signup" className="text-accent hover:text-accent-deep">
+              Create one
+            </Link>
+          </p>
         </div>
 
-        <div>
-          <label htmlFor="password" className="text-sm font-medium">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            required
-            value={form.password}
-            onChange={(event) => setForm({ ...form, password: event.target.value })}
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-          />
-        </div>
+        <form onSubmit={onSubmit} className="space-y-3">
+          {expired && (
+            <p className="border border-line bg-sunk px-3 py-2 text-[13px] text-ink-2">
+              Your session expired. Please sign in again.
+            </p>
+          )}
 
-        {error !== null && (
-          <p role="alert" className="rounded-md border border-destructive px-3 py-2 text-sm">
-            {error}
-          </p>
-        )}
+          <div>
+            <label htmlFor="email" className="label">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              required
+              value={form.email}
+              onChange={(event) => setForm({ ...form, email: event.target.value })}
+              className="field"
+            />
+          </div>
 
-        <button
-          type="submit"
-          disabled={pending}
-          className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-        >
-          {pending ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
+          <div>
+            <label htmlFor="password" className="label">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              required
+              value={form.password}
+              onChange={(event) => setForm({ ...form, password: event.target.value })}
+              className="field"
+            />
+          </div>
+
+          {error !== null && <ErrorNote>{error}</ErrorNote>}
+
+          <Button type="submit" variant="primary" disabled={pending} className="w-full">
+            {pending ? 'Signing in…' : 'Sign in'}
+          </Button>
+        </form>
+      </Panel>
     </main>
   );
 }

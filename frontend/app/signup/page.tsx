@@ -6,6 +6,9 @@ import { useState, type FormEvent } from 'react';
 
 import { ApiError, api, setToken } from '@/lib/api';
 import type { AuthResponse } from '@/lib/types';
+import { Button } from '@/components/ui/Button';
+import { ErrorNote } from '@/components/ui/Notice';
+import { Panel } from '@/components/ui/Panel';
 
 interface SignupForm {
   org_name: string;
@@ -49,49 +52,46 @@ export default function SignupPage() {
   ] as const;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
-      <h1 className="text-2xl font-bold">Create your organization</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Already registered?{' '}
-        <Link href="/login" className="underline">
-          Sign in
-        </Link>
-      </p>
-
-      <form onSubmit={onSubmit} className="mt-8 space-y-4">
-        {fields.map((field) => (
-          <div key={field.key}>
-            <label htmlFor={field.key} className="text-sm font-medium">
-              {field.label}
-            </label>
-            <input
-              id={field.key}
-              type={field.type}
-              required={field.key !== 'full_name'}
-              value={form[field.key]}
-              onChange={(event) => setForm({ ...form, [field.key]: event.target.value })}
-              className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-            />
-          </div>
-        ))}
-        <p className="text-xs text-muted-foreground">
-          Password must be at least 8 characters and contain letters and digits.
-        </p>
-
-        {error !== null && (
-          <p role="alert" className="rounded-md border border-destructive px-3 py-2 text-sm">
-            {error}
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+      <Panel className="space-y-4 p-5">
+        <div>
+          <h1 className="text-[15px] font-semibold text-ink">Create your organization</h1>
+          <p className="mt-1 text-[13px] text-ink-2">
+            Already registered?{' '}
+            <Link href="/login" className="text-accent hover:text-accent-deep">
+              Sign in
+            </Link>
           </p>
-        )}
+        </div>
 
-        <button
-          type="submit"
-          disabled={pending}
-          className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-        >
-          {pending ? 'Creating…' : 'Create organization'}
-        </button>
-      </form>
+        <form onSubmit={onSubmit} className="space-y-3">
+          {fields.map((field) => (
+            <div key={field.key}>
+              <label htmlFor={field.key} className="label">
+                {field.label}
+              </label>
+              <input
+                id={field.key}
+                type={field.type}
+                required={field.key !== 'full_name'}
+                value={form[field.key]}
+                onChange={(event) => setForm({ ...form, [field.key]: event.target.value })}
+                className="field"
+              />
+            </div>
+          ))}
+
+          <p className="text-[11px] text-ink-3">
+            Password must be at least 8 characters and contain letters and digits.
+          </p>
+
+          {error !== null && <ErrorNote>{error}</ErrorNote>}
+
+          <Button type="submit" variant="primary" disabled={pending} className="w-full">
+            {pending ? 'Creating…' : 'Create organization'}
+          </Button>
+        </form>
+      </Panel>
     </main>
   );
 }

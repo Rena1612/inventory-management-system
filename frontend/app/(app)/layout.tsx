@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 
-import { api, clearToken, getToken } from '@/lib/api';
+import { ApiError, api, clearToken, getToken } from '@/lib/api';
 import type { User } from '@/lib/types';
 import { ToastProvider } from '@/components/Toast';
+import { Button } from '@/components/ui/Button';
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -25,6 +26,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [userError, setUserError] = useState<string | null>(null);
 
   useEffect(() => {
     if (getToken() === null) {
@@ -32,10 +34,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       return;
     }
     setReady(true);
-    // Identity is only used to label the rail; a failure must not block the app.
+    // Identity only labels the rail, so a failure here must not block the app.
     void api<{ user: User }>('/api/auth/me')
-      .then((result) => setUser(result.user))
-      .catch(() => setUser(null));
+      .then((result) => {
+        setUser(result.user);
+        setUserError(null);
+      })
+      .catch((caught: unknown) => {
+        setUser(null);
+        setUserError(
+          caught instanceof ApiError ? caught.message : 'Could not load your profile',
+        );
+      });
   }, [router]);
 
   if (!ready) {
@@ -56,9 +66,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <p className="text-[13px] font-semibold text-ink">Stockroom</p>
               <p className="ref mt-0.5 truncate">{user?.full_name ?? user?.email ?? '—'}</p>
             </div>
-            <button type="button" onClick={signOut} className="btn-ghost btn-sm md:hidden">
+            <Button size="sm" className="md:hidden" onClick={signOut}>
               Sign out
-            </button>
+            </Button>
           </div>
 
           <nav className="flex gap-1 overflow-x-auto px-2 py-2 md:flex-1 md:flex-col md:gap-0 md:overflow-x-visible md:overflow-y-auto md:pr-2">
@@ -81,10 +91,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="hidden border-t border-line p-2 md:block">
-            {user !== null && <p className="ref mb-2 px-1">{user.role}</p>}
-            <button type="button" onClick={signOut} className="btn-ghost w-full">
+            {userError !== null ? (
+              <p role="status" className="mb-2 px-1 text-[11px] text-stock-out">
+                {userError}
+              </p>
+            ) : (
+              user !== null && <p className="ref mb-2 px-1">{user.role}</p>
+            )}
+            <Button className="w-full" onClick={signOut}>
               Sign out
-            </button>
+            </Button>
           </div>
         </aside>
 

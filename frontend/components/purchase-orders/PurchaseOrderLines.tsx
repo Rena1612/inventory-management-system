@@ -2,6 +2,7 @@
 
 import { formatMoney } from '@/lib/format';
 import type { Location, Product } from '@/lib/types';
+import { Button } from '@/components/ui/Button';
 
 export interface LineState {
   key: number;
@@ -51,12 +52,19 @@ export function PurchaseOrderLines({
     onChange(lines.length === 1 ? [newLine()] : lines.filter((line) => line.key !== key));
   }
 
+  /** Names the row a control acts on, so it is not "Remove line" out of context. */
+  function lineName(productId: string): string {
+    if (productId === '') return 'empty line';
+    const product = products.find((item) => item.id === productId);
+    return product === undefined ? 'line' : `${product.sku} ${product.name}`;
+  }
+
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-12 gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+      <div className="grid grid-cols-12 gap-2 text-[11px] text-ink-3">
         <span className="col-span-4">Product</span>
-        <span className="col-span-2">Quantity</span>
-        <span className="col-span-2">Unit cost</span>
+        <span className="col-span-2 text-right">Quantity</span>
+        <span className="col-span-2 text-right">Unit cost</span>
         <span className="col-span-3">Destination</span>
         <span className="col-span-1" />
       </div>
@@ -67,7 +75,7 @@ export function PurchaseOrderLines({
             aria-label="Product"
             value={line.product_id}
             onChange={(event) => chooseProduct(line.key, event.target.value)}
-            className="col-span-4 rounded-md border px-3 py-2 text-sm"
+            className="field col-span-4 min-w-0"
           >
             <option value="">Select a product…</option>
             {products.map((product) => (
@@ -83,7 +91,7 @@ export function PurchaseOrderLines({
             value={line.quantity}
             onChange={(event) => patch(line.key, { quantity: event.target.value })}
             placeholder="0"
-            className="col-span-2 rounded-md border px-3 py-2 text-sm"
+            className="field col-span-2 min-w-0 text-right"
           />
 
           <input
@@ -92,14 +100,14 @@ export function PurchaseOrderLines({
             value={line.unit_cost}
             onChange={(event) => patch(line.key, { unit_cost: event.target.value })}
             placeholder="0.00"
-            className="col-span-2 rounded-md border px-3 py-2 text-sm"
+            className="field col-span-2 min-w-0 text-right"
           />
 
           <select
             aria-label="Destination"
             value={line.location_id}
             onChange={(event) => patch(line.key, { location_id: event.target.value })}
-            className="col-span-3 rounded-md border px-3 py-2 text-sm"
+            className="field col-span-3 min-w-0"
           >
             <option value="">Receive later</option>
             {locations.map((location) => (
@@ -109,27 +117,22 @@ export function PurchaseOrderLines({
             ))}
           </select>
 
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="danger"
             onClick={() => remove(line.key)}
-            aria-label="Remove line"
-            className="col-span-1 rounded-md border px-2 py-2 text-xs text-destructive hover:bg-muted"
+            aria-label={`Remove ${lineName(line.product_id)}`}
+            className="col-span-1"
           >
             ✕
-          </button>
+          </Button>
         </div>
       ))}
 
       <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => onChange([...lines, newLine()])}
-          className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
-        >
-          Add line
-        </button>
-        <span className="text-sm text-muted-foreground">
-          Total: <span className="font-medium">{formatMoney(String(total))}</span>
+        <Button onClick={() => onChange([...lines, newLine()])}>Add line</Button>
+        <span className="text-[13px] text-ink-2">
+          Total <span className="font-medium tabular-nums text-ink">{formatMoney(String(total))}</span>
         </span>
       </div>
     </div>

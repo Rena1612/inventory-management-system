@@ -12,6 +12,7 @@ import {
   type LineState,
 } from '@/components/purchase-orders/PurchaseOrderLines';
 import { useToast } from '@/components/Toast';
+import { Button } from '@/components/ui/Button';
 
 export function PurchaseOrderForm() {
   const router = useRouter();
@@ -180,14 +181,9 @@ export function PurchaseOrderForm() {
 
       <FormError message={error} />
 
-      <button
-        type="button"
-        onClick={() => void submit()}
-        disabled={busy}
-        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-      >
+      <Button variant="primary" onClick={() => void submit()} disabled={busy}>
         {busy ? 'Creating…' : 'Create purchase order'}
-      </button>
+      </Button>
     </FormSection>
   );
 }

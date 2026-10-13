@@ -6,6 +6,13 @@ import { ApiError, api } from '@/lib/api';
 import type { Location, Page } from '@/lib/types';
 import { LocationForm } from '@/components/locations/LocationForm';
 import { useToast } from '@/components/Toast';
+import { Button } from '@/components/ui/Button';
+import { Table, TableNote, TablePending, Td, Th } from '@/components/ui/DataTable';
+import { ErrorNote } from '@/components/ui/Notice';
+import { Panel } from '@/components/ui/Panel';
+import { PageHeader } from '@/components/ui/PageHeader';
+
+const COLUMNS = 5;
 
 export default function LocationsPage() {
   const toast = useToast();
@@ -55,59 +62,45 @@ export default function LocationsPage() {
         onSaved={() => void load()}
       />
 
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-bold">Locations</h1>
-        <span className="text-sm text-muted-foreground">{items.length} total</span>
-      </div>
+      <PageHeader title="Locations" count={items.length} />
 
-      {error !== null && <p className="text-sm text-destructive">{error}</p>}
+      {error !== null && <ErrorNote>{error}</ErrorNote>}
 
-      <table className="w-full text-left text-sm">
-        <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
-          <tr>
-            <th className="py-2">Name</th>
-            <th className="py-2">Code</th>
-            <th className="py-2">Type</th>
-            <th className="py-2">Address</th>
-            <th className="py-2 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((location) => (
-            <tr key={location.id} className="border-b">
-              <td className="py-2">{location.name}</td>
-              <td className="py-2 font-mono text-xs">{location.code ?? '—'}</td>
-              <td className="py-2">{location.type}</td>
-              <td className="py-2 text-muted-foreground">{location.address ?? '—'}</td>
-              <td className="py-2 text-right">
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(location)}
-                    className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void archive(location)}
-                    className="rounded-md border px-2 py-1 text-xs text-destructive hover:bg-muted"
-                  >
-                    Archive
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-          {!loading && items.length === 0 && (
+      <Panel scroll>
+        <Table>
+          <thead>
             <tr>
-              <td colSpan={5} className="py-10 text-center text-muted-foreground">
-                No locations yet.
-              </td>
+              <Th>Name</Th>
+              <Th>Code</Th>
+              <Th>Type</Th>
+              <Th>Address</Th>
+              <Th align="right" className="pr-2">Actions</Th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((location) => (
+              <tr key={location.id}>
+                <Td>{location.name}</Td>
+                <Td className="ref">{location.code ?? '—'}</Td>
+                <Td>{location.type}</Td>
+                <Td className="text-ink-2">{location.address ?? '—'}</Td>
+                <Td className="pr-2">
+                  <div className="flex justify-end gap-1.5">
+                    <Button size="sm" onClick={() => setEditing(location)}>
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="danger" onClick={() => void archive(location)}>
+                      Archive
+                    </Button>
+                  </div>
+                </Td>
+              </tr>
+            ))}
+            {loading && items.length === 0 && <TablePending colSpan={COLUMNS} />}
+            {!loading && items.length === 0 && <TableNote colSpan={COLUMNS}>No locations yet.</TableNote>}
+          </tbody>
+        </Table>
+      </Panel>
     </div>
   );
 }

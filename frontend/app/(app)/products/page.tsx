@@ -9,8 +9,14 @@ import type { Page, Product } from '@/lib/types';
 import { ProductForm } from '@/components/products/ProductForm';
 import { StockGauge } from '@/components/StockGauge';
 import { useToast } from '@/components/Toast';
+import { Button } from '@/components/ui/Button';
+import { Table, TableNote, TablePending, Td, Th } from '@/components/ui/DataTable';
+import { ErrorNote } from '@/components/ui/Notice';
+import { Panel } from '@/components/ui/Panel';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 const PAGE_SIZE = 20;
+const COLUMNS = 7;
 
 export default function ProductsPage() {
   const toast = useToast();
@@ -57,7 +63,7 @@ export default function ProductsPage() {
     try {
       await api(`/api/products/${product.id}`, { method: 'DELETE' });
       toast.push(`Archived ${product.sku}`);
-      if (editing?.id === product.id) setEditing(null);
+      closeForm();
       void load();
     } catch (caught) {
       toast.push(
@@ -69,17 +75,17 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-baseline justify-between gap-4 border-b border-line pb-2">
-        <h1 className="text-[15px] font-semibold text-ink">
-          Products
-          <span className="ml-2 text-[13px] font-normal tabular-nums text-ink-3">{total}</span>
-        </h1>
-        {!formOpen && (
-          <button type="button" onClick={() => setAdding(true)} className="btn-primary">
-            Add product
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Products"
+        count={total}
+        actions={
+          !formOpen ? (
+            <Button variant="primary" onClick={() => setAdding(true)}>
+              Add product
+            </Button>
+          ) : undefined
+        }
+      />
 
       {formOpen && (
         <ProductForm
@@ -101,34 +107,38 @@ export default function ProductsPage() {
           setOffset(0);
           setQuery(event.target.value);
         }}
-        className="field w-64"
+        className="field w-full max-w-xs"
       />
 
-      {error !== null && <p className="text-[13px] text-destructive">{error}</p>}
+      {error !== null && <ErrorNote>{error}</ErrorNote>}
 
-      <div className="panel overflow-x-auto">
-        <table className="table">
+      <Panel scroll>
+        <Table>
           <thead>
             <tr>
-              <th className="th">SKU</th>
-              <th className="th">Product</th>
-              <th className="th w-40 pr-2 text-right">On hand</th>
-              <th className="th text-right">Cost</th>
-              <th className="th text-right">Sell</th>
-              <th className="th text-right">Reorder at</th>
-              <th className="th pr-2 text-right">Actions</th>
+              <Th>SKU</Th>
+              <Th>Product</Th>
+              <Th align="right" className="w-48 pr-2">
+                On hand
+              </Th>
+              <Th align="right">Cost</Th>
+              <Th align="right">Sell</Th>
+              <Th align="right">Reorder at</Th>
+              <Th align="right" className="pr-2">
+                Actions
+              </Th>
             </tr>
           </thead>
           <tbody>
             {products.map((product) => (
               <tr key={product.id} className="print-keep">
-                <td className="td ref">{product.sku}</td>
-                <td className="td">
+                <Td className="ref">{product.sku}</Td>
+                <Td>
                   <Link href={`/products/${product.id}`} className="hover:text-accent">
                     {product.name}
                   </Link>
-                </td>
-                <td className="td pr-2">
+                </Td>
+                <Td className="pr-2">
                   <StockGauge
                     quantity={Number(product.total_quantity)}
                     reorderPoint={Number(product.reorder_point)}
@@ -136,77 +146,67 @@ export default function ProductsPage() {
                     label={formatQuantity(product.total_quantity)}
                     unit={product.unit}
                   />
-                </td>
-                <td className="td num text-ink-2">{formatMoney(product.cost_price)}</td>
-                <td className="td num text-ink-2">{formatMoney(product.sell_price)}</td>
-                <td className="td num text-ink-2">{formatQuantity(product.reorder_point)}</td>
-                <td className="td pr-2">
+                </Td>
+                <Td align="right" className="text-ink-2">
+                  {formatMoney(product.cost_price)}
+                </Td>
+                <Td align="right" className="text-ink-2">
+                  {formatMoney(product.sell_price)}
+                </Td>
+                <Td align="right" className="text-ink-2">
+                  {formatQuantity(product.reorder_point)}
+                </Td>
+                <Td className="pr-2">
                   <div className="flex justify-end gap-1.5">
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
                       onClick={() => {
                         setAdding(false);
                         setEditing(product);
                       }}
-                      className="btn-ghost btn-sm"
                     >
                       Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void archive(product)}
-                      className="btn-danger btn-sm"
-                    >
+                    </Button>
+                    <Button size="sm" variant="danger" onClick={() => void archive(product)}>
                       Archive
-                    </button>
+                    </Button>
                   </div>
-                </td>
+                </Td>
               </tr>
             ))}
+            {loading && products.length === 0 && <TablePending colSpan={COLUMNS} />}
             {!loading && products.length === 0 && (
-              <tr>
-                <td colSpan={7} className="td py-8 text-center text-ink-3">
-                  {query === '' ? (
-                    <>
-                      No products yet.{' '}
-                      <button
-                        type="button"
-                        onClick={() => setAdding(true)}
-                        className="text-accent hover:text-accent-deep"
-                      >
-                        Add the first one
-                      </button>
-                    </>
-                  ) : (
-                    `No products match “${query}”.`
-                  )}
-                </td>
-              </tr>
+              <TableNote colSpan={COLUMNS}>
+                {query === '' ? (
+                  <>
+                    No products yet.{' '}
+                    <Button
+                      variant="primary"
+                      className="h-auto px-0 text-[13px]"
+                      onClick={() => setAdding(true)}
+                    >
+                      Add the first one
+                    </Button>
+                  </>
+                ) : (
+                  `No products match “${query}”.`
+                )}
+              </TableNote>
             )}
           </tbody>
-        </table>
-      </div>
+        </Table>
+      </Panel>
 
       <div className="flex items-center gap-3 text-[12px] text-ink-3">
-        <button
-          type="button"
-          disabled={offset === 0}
-          onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-          className="btn-ghost"
-        >
+        <Button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
           Previous
-        </button>
+        </Button>
         <span className="tabular-nums">
           {total === 0 ? 0 : offset + 1}–{offset + products.length} of {total}
         </span>
-        <button
-          type="button"
-          disabled={!hasNext}
-          onClick={() => setOffset(offset + PAGE_SIZE)}
-          className="btn-ghost"
-        >
+        <Button disabled={!hasNext} onClick={() => setOffset(offset + PAGE_SIZE)}>
           Next
-        </button>
+        </Button>
       </div>
     </div>
   );

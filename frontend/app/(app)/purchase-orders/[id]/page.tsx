@@ -10,6 +10,12 @@ import { outstandingQuantity, type Location, type Page, type PurchaseOrderDetail
 import { ReceiveForm } from '@/components/purchase-orders/ReceiveForm';
 import { StatusBadge } from '@/components/purchase-orders/StatusBadge';
 import { PrintButton } from '@/components/PrintButton';
+import { Table, TableNote, Td, Th } from '@/components/ui/DataTable';
+import { LoadingNote, PageError } from '@/components/ui/Notice';
+import { Figure, FigureStrip, Panel } from '@/components/ui/Panel';
+import { PageHeader, SectionHead } from '@/components/ui/PageHeader';
+
+const LINE_COLUMNS = 7;
 
 export default function PurchaseOrderDetailPage() {
   const params = useParams<{ id: string }>();
@@ -17,7 +23,7 @@ export default function PurchaseOrderDetailPage() {
 
   const [order, setOrder] = useState<PurchaseOrderDetail | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const [notFound, setNotFound] = useState(false);
 
   const load = useCallback(async () => {
@@ -36,9 +42,7 @@ export default function PurchaseOrderDetailPage() {
         setNotFound(true);
         return;
       }
-      setError(
-        caught instanceof ApiError ? caught.message : 'Failed to load the purchase order',
-      );
+      setError(caught);
     }
   }, [orderId]);
 
@@ -49,118 +53,130 @@ export default function PurchaseOrderDetailPage() {
   if (notFound) {
     return (
       <div className="space-y-3">
-        <h1 className="text-2xl font-bold">Purchase order not found</h1>
-        <p className="text-sm text-muted-foreground">
+        <Link href="/purchase-orders" className="text-[13px] text-ink-2 underline">
+          Purchase orders
+        </Link>
+        <PageHeader title="Purchase order not found" />
+        <p className="text-[13px] text-ink-2">
           It may have been archived, or belong to another organization.
         </p>
-        <Link
-          href="/purchase-orders"
-          className="inline-block rounded-md border px-3 py-2 text-sm hover:bg-muted"
-        >
+        <Link href="/purchase-orders" className="btn-ghost">
           Back to purchase orders
         </Link>
       </div>
     );
   }
 
-  if (error !== null) return <p className="text-sm text-destructive">{error}</p>;
-  if (order === null) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (error !== null) {
+    return (
+      <PageError
+        error={error}
+        fallback="The purchase order could not be loaded."
+        onRetry={load}
+      />
+    );
+  }
+  if (order === null) return <LoadingNote />;
 
   const receiveable = order.status === 'open' || order.status === 'partial';
+  const label = order.reference ?? order.id.slice(0, 8);
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-baseline justify-between">
-        <div>
-          <Link href="/purchase-orders" className="text-sm text-muted-foreground underline">
-            Purchase orders
-          </Link>
-          <h1 className="text-2xl font-bold">
-            {order.reference ?? order.id.slice(0, 8)}
-          </h1>
-        </div>
-        <PrintButton
-          title={`Purchase Order ${order.reference ?? order.id.slice(0, 8)}`}
-          generatedAt={new Date().toISOString()}
-          organizationName={order.supplier_name}
-        />
-      </div>
+    <div className="space-y-6">
+      <Link href="/purchase-orders" className="text-[13px] text-ink-2 underline">
+        Purchase orders
+      </Link>
 
-      <section className="grid gap-4 sm:grid-cols-4">
-        {[
-          { label: 'Status', value: <StatusBadge status={order.status} /> },
-          { label: 'Supplier', value: order.supplier_name ?? '—' },
-          { label: 'Expected', value: formatDate(order.expected_at) },
-          { label: 'Total', value: formatMoney(order.total, order.currency) },
-        ].map((card) => (
-          <div key={card.label} className="rounded-lg border p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{card.label}</p>
-            <div className="mt-2 text-xl font-semibold">{card.value}</div>
-          </div>
-        ))}
-      </section>
+      <PageHeader
+        title={label}
+        actions={
+          <>
+            <StatusBadge status={order.status} />
+            <PrintButton
+              title={`Purchase Order ${label}`}
+              generatedAt={new Date().toISOString()}
+              organizationName={order.supplier_name}
+            />
+          </>
+        }
+      />
 
-      {order.notes !== null && (
-        <p className="text-sm text-muted-foreground">{order.notes}</p>
-      )}
+      <FigureStrip>
+        <Figure label="Supplier" value={order.supplier_name ?? '—'} />
+        <Figure label="Expected" value={formatDate(order.expected_at)} />
+        <Figure label="Total" value={formatMoney(order.total, order.currency)} />
+      </FigureStrip>
 
-      <section>
-        <h2 className="text-lg font-semibold">Lines</h2>
-        <table className="mt-4 w-full text-left text-sm">
-          <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="py-2">SKU</th>
-              <th className="py-2">Product</th>
-              <th className="py-2 text-right">Ordered</th>
-              <th className="py-2 text-right">Received</th>
-              <th className="py-2 text-right">Outstanding</th>
-              <th className="py-2 text-right">Unit cost</th>
-              <th className="py-2 text-right">Line total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {order.items.map((item) => {
-              const remaining = outstandingQuantity(item);
-              return (
-                <tr key={item.id} className="border-b">
-                  <td className="py-2 font-mono text-xs">{item.product_sku}</td>
-                  <td className="py-2">{item.product_name}</td>
-                  <td className="py-2 text-right">{formatQuantity(item.quantity)}</td>
-                  <td className="py-2 text-right">{formatQuantity(item.received_qty)}</td>
-                  <td
-                    className={`py-2 text-right ${remaining > 0 ? 'font-medium text-amber-700' : 'text-muted-foreground'}`}
-                  >
-                    {formatQuantity(String(remaining))}
-                  </td>
-                  <td className="py-2 text-right">{formatMoney(item.unit_cost, order.currency)}</td>
-                  <td className="py-2 text-right">
-                    {formatMoney(
-                      String(Number(item.quantity) * Number(item.unit_cost)),
-                      order.currency,
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {order.notes !== null && <p className="text-[13px] text-ink-2">{order.notes}</p>}
+
+      <section className="space-y-2">
+        <SectionHead>
+          Lines
+          <span className="ml-2 tabular-nums text-ink-3">{order.items.length}</span>
+        </SectionHead>
+        <Panel scroll>
+          <Table>
+            <thead>
+              <tr>
+                <Th>SKU</Th>
+                <Th>Product</Th>
+                <Th align="right">Ordered</Th>
+                <Th align="right">Received</Th>
+                <Th align="right">Outstanding</Th>
+                <Th align="right">Unit cost</Th>
+                <Th align="right" className="pr-2">Line total</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.items.map((item) => {
+                const remaining = outstandingQuantity(item);
+                return (
+                  <tr key={item.id}>
+                    <Td className="ref">{item.product_sku}</Td>
+                    <Td>{item.product_name}</Td>
+                    <Td align="right">{formatQuantity(item.quantity)}</Td>
+                    <Td align="right">{formatQuantity(item.received_qty)}</Td>
+                    <Td
+                      align="right"
+                      className={remaining > 0 ? 'font-medium text-stock-low' : 'text-ink-2'}
+                    >
+                      {formatQuantity(String(remaining))}
+                    </Td>
+                    <Td align="right" className="text-ink-2">
+                      {formatMoney(item.unit_cost, order.currency)}
+                    </Td>
+                    <Td align="right" className="pr-2">
+                      {formatMoney(
+                        String(Number(item.quantity) * Number(item.unit_cost)),
+                        order.currency,
+                      )}
+                    </Td>
+                  </tr>
+                );
+              })}
+              {order.items.length === 0 && (
+                <TableNote colSpan={LINE_COLUMNS}>This order has no lines.</TableNote>
+              )}
+            </tbody>
+          </Table>
+        </Panel>
       </section>
 
       {receiveable ? (
         <ReceiveForm order={order} locations={locations} onReceived={() => void load()} />
       ) : (
-        <div className="rounded-lg border p-4">
-          <p className="text-sm">
+        <Panel className="space-y-1 p-4">
+          <p className="text-[13px]">
             {order.status === 'received'
               ? 'Fully received — no outstanding quantities remain on this order.'
               : `This order is ${order.status} and cannot receive further stock.`}
           </p>
           {order.received_at !== null && (
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="text-[11px] text-ink-3">
               Received {formatDate(order.received_at)}
             </p>
           )}
-        </div>
+        </Panel>
       )}
     </div>
   );

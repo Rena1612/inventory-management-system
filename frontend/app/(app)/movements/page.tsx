@@ -7,8 +7,16 @@ import { formatDateTime, formatQuantity } from '@/lib/format';
 import type { Movement, Page } from '@/lib/types';
 
 import { MovementForm } from '@/components/movements/MovementForm';
+import { Button } from '@/components/ui/Button';
+import { Table, TableNote, TablePending, Td, Th } from '@/components/ui/DataTable';
+import { ErrorNote } from '@/components/ui/Notice';
+import { Panel } from '@/components/ui/Panel';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 const TYPES = ['in', 'out', 'adjust', 'transfer_in', 'transfer_out'] as const;
+
+const COLUMNS = 7;
+const PAGE_SIZE = 25;
 
 export default function MovementsPage() {
   const [items, setItems] = useState<Movement[]>([]);
@@ -23,7 +31,7 @@ export default function MovementsPage() {
     setError(null);
     try {
       const result = await api<Page<Movement>>('/api/movements', {
-        query: { type: type || undefined, limit: 25, offset },
+        query: { type: type || undefined, limit: PAGE_SIZE, offset },
       });
       setItems(result.items);
       setTotal(result.meta.total);
@@ -42,10 +50,7 @@ export default function MovementsPage() {
     <div className="space-y-6">
       <MovementForm onRecorded={() => void load()} />
 
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-bold">Movements</h1>
-        <span className="text-sm text-muted-foreground">{total} in the ledger</span>
-      </div>
+      <PageHeader title="Movements" count={total} />
 
       <div className="flex gap-3">
         <select
@@ -54,7 +59,8 @@ export default function MovementsPage() {
             setOffset(0);
             setType(event.target.value);
           }}
-          className="rounded-md border px-3 py-2 text-sm"
+          aria-label="Filter by movement type"
+          className="field w-48"
         >
           <option value="">All types</option>
           {TYPES.map((value) => (
@@ -65,66 +71,58 @@ export default function MovementsPage() {
         </select>
       </div>
 
-      {error !== null && <p className="text-sm text-destructive">{error}</p>}
+      {error !== null && <ErrorNote>{error}</ErrorNote>}
 
-      <table className="w-full text-left text-sm">
-        <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
-          <tr>
-            <th className="py-2">When</th>
-            <th className="py-2">Type</th>
-            <th className="py-2">Product</th>
-            <th className="py-2">Location</th>
-            <th className="py-2">User</th>
-            <th className="py-2 text-right">Quantity</th>
-            <th className="py-2 text-right">Reference</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((movement) => (
-            <tr key={movement.id} className="border-b">
-              <td className="py-2">{formatDateTime(movement.created_at)}</td>
-              <td className="py-2">{movement.type}</td>
-              <td className="py-2">
-                {movement.product_sku} — {movement.product_name}
-              </td>
-              <td className="py-2">{movement.location_name ?? '—'}</td>
-              <td className="py-2">{movement.user_email ?? 'system'}</td>
-              <td className="py-2 text-right">{formatQuantity(movement.quantity)}</td>
-              <td className="py-2 text-right text-muted-foreground">
-                {movement.reference ?? '—'}
-              </td>
-            </tr>
-          ))}
-          {!loading && items.length === 0 && (
+      <Panel scroll>
+        <Table>
+          <thead>
             <tr>
-              <td colSpan={7} className="py-10 text-center text-muted-foreground">
-                No movements match.
-              </td>
+              <Th>When</Th>
+              <Th>Type</Th>
+              <Th>Product</Th>
+              <Th>Location</Th>
+              <Th>User</Th>
+              <Th align="right">Quantity</Th>
+              <Th align="right" className="pr-2">Reference</Th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((movement) => (
+              <tr key={movement.id}>
+                <Td className="whitespace-nowrap text-ink-2">
+                  {formatDateTime(movement.created_at)}
+                </Td>
+                <Td className="text-ink-2">{movement.type}</Td>
+                <Td>
+                  <span className="ref">{movement.product_sku}</span>
+                  <span className="ml-2">{movement.product_name}</span>
+                </Td>
+                <Td>{movement.location_name ?? '—'}</Td>
+                <Td className="text-ink-2">{movement.user_email ?? 'system'}</Td>
+                <Td align="right">{formatQuantity(movement.quantity)}</Td>
+                <Td align="right" className="ref pr-2">
+                  {movement.reference ?? '—'}
+                </Td>
+              </tr>
+            ))}
+            {loading && items.length === 0 && <TablePending colSpan={COLUMNS} />}
+            {!loading && items.length === 0 && (
+              <TableNote colSpan={COLUMNS}>No movements match.</TableNote>
+            )}
+          </tbody>
+        </Table>
+      </Panel>
 
-      <div className="flex items-center gap-4 text-sm">
-        <button
-          type="button"
-          disabled={offset === 0}
-          onClick={() => setOffset(Math.max(0, offset - 25))}
-          className="rounded-md border px-3 py-1 disabled:opacity-40"
-        >
+      <div className="flex items-center gap-3 text-[12px] text-ink-3">
+        <Button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
           Previous
-        </button>
-        <span className="text-muted-foreground">
+        </Button>
+        <span className="tabular-nums">
           {total === 0 ? 0 : offset + 1}–{offset + items.length} of {total}
         </span>
-        <button
-          type="button"
-          disabled={offset + items.length >= total}
-          onClick={() => setOffset(offset + 25)}
-          className="rounded-md border px-3 py-1 disabled:opacity-40"
-        >
+        <Button disabled={offset + items.length >= total} onClick={() => setOffset(offset + PAGE_SIZE)}>
           Next
-        </button>
+        </Button>
       </div>
     </div>
   );
