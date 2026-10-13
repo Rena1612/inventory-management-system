@@ -7,13 +7,25 @@ import asyncpg
 from app.errors import conflict, not_found
 from app.models.movement import MovementIn, TransferIn
 
-# The effect of a movement on stock, defined once. 'out'/'transfer_out' are stored
-# as positive magnitudes (stock_movements_sign_by_type); 'adjust' is already a
-# signed delta. Clients render `delta` rather than re-deriving the sign themselves,
-# so the rule cannot drift between the ledger and the UI.
+# The effect of a movement on stock, defined once and stated per type.
+#
+# 'out'/'transfer_out' are stored as positive magnitudes (stock_movements_sign_by_type)
+# and reduce stock, so their delta is negated. 'adjust' is already a signed delta and
+# passes through unchanged.
+#
+# Every allowed type is listed explicitly. The ELSE branch returns NULL rather than
+# falling back to a positive quantity: an unknown type would otherwise be reported as
+# an increase, which is the more dangerous direction to be wrong in. With
+# stock_movements_type_known (migration 002) and the `movement_type` enum this branch
+# is unreachable, so a NULL here means the type rules and the schema have drifted.
 DELTA_SQL = """
-    CASE WHEN sm.type IN ('out', 'transfer_out') THEN -sm.quantity
-         ELSE sm.quantity
+    CASE sm.type
+        WHEN 'in'          THEN  sm.quantity
+        WHEN 'transfer_in' THEN  sm.quantity
+        WHEN 'out'         THEN -sm.quantity
+        WHEN 'transfer_out' THEN -sm.quantity
+        WHEN 'adjust'      THEN  sm.quantity
+        ELSE NULL
     END AS delta
 """
 
