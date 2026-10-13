@@ -1,0 +1,45 @@
+# Normalise line endings on commit, check out per platform.
+# Stops phantom whole-file diffs when Windows and Linux both touch a repo.
+
+* text=auto eol=lf
+
+# Shell scripts MUST be LF or they fail on Unix with \r errors.
+*.sh text eol=lf
+*.bash text eol=lf
+
+# SQL: migrations are applied verbatim; CRLF has bitten pg parsing before.
+*.sql text eol=lf
+
+# Config that shells out or parses on any platform.
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+Dockerfile text eol=lf
+
+# Documentation + source: LF everywhere for consistent diffs.
+*.md text eol=lf
+*.py text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+.env.example text eol=lf
+
+# Windows-native scripts need CRLF to run under cmd.exe / PowerShell.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary: never touch.
+*.png text eol=lf binary
+*.jpg text eol=lf binary
+*.jpeg text eol=lf binary
+*.gif text eol=lf binary
+*.ico text eol=lf binary
+*.webp text eol=lf binary
+*.pdf text eol=lf binary
+*.woff text eol=lf binary
+*.woff2 text eol=lf binary
