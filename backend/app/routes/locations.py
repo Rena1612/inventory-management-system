@@ -15,6 +15,7 @@ from app.models.location import (
     LocationOut,
     LocationUpdate,
 )
+from app.services.category_service import assert_valid_parent
 from app.sql import build_update
 
 router = APIRouter(prefix="/api/locations", tags=["locations"])
@@ -111,6 +112,8 @@ categories_router = APIRouter(prefix="/api/categories", tags=["categories"])
 
 @categories_router.post("", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
 async def create_category(payload: CategoryCreate, conn: ConnectionDep, user: WriterDep) -> CategoryOut:
+    if payload.parent_id is not None:
+        await assert_valid_parent(conn, user.org_id, payload.parent_id)
     record = await conn.fetchrow(
         "INSERT INTO categories (org_id, name, description, parent_id) VALUES ($1,$2,$3,$4) RETURNING *",
         user.org_id, payload.name, payload.description, payload.parent_id,
@@ -131,6 +134,8 @@ async def list_categories(conn: ConnectionDep, user: WriterDep) -> list[Category
 async def update_category(
     category_id: uuid.UUID, payload: CategoryUpdate, conn: ConnectionDep, user: WriterDep
 ) -> CategoryOut:
+    if payload.parent_id is not None:
+        await assert_valid_parent(conn, user.org_id, payload.parent_id, category_id)
     query, args = build_update(
         "categories",
         payload.model_dump(exclude_unset=True),
