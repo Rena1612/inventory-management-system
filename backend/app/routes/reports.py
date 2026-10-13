@@ -6,7 +6,7 @@ import io
 from fastapi import APIRouter, Response
 
 from app.deps import ConnectionDep, TimeRangeDep, WriterDep
-from app.services import report_service
+from app.services import movement_service, report_service
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -48,8 +48,9 @@ async def dashboard(conn: ConnectionDep, user: WriterDep) -> dict:
     totals, _ = await report_service.valuation(conn, user.org_id)
     low = await report_service.low_stock(conn, user.org_id)
     recent = await conn.fetch(
-        """
+        f"""
         SELECT sm.id, sm.type, sm.quantity, sm.created_at, sm.reference,
+               {movement_service.DELTA_SQL},
                p.sku AS product_sku, p.name AS product_name,
                l.name AS location_name
         FROM stock_movements sm

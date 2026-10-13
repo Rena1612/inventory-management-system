@@ -7,8 +7,31 @@ import asyncpg
 from app.errors import conflict, not_found
 from app.models.movement import MovementIn, TransferIn
 
-MOVEMENT_SELECT = """
+# The effect of a movement on stock, defined once and stated per type.
+#
+# 'out'/'transfer_out' are stored as positive magnitudes (stock_movements_sign_by_type)
+# and reduce stock, so their delta is negated. 'adjust' is already a signed delta and
+# passes through unchanged.
+#
+# Every allowed type is listed explicitly. The ELSE branch returns NULL rather than
+# falling back to a positive quantity: an unknown type would otherwise be reported as
+# an increase, which is the more dangerous direction to be wrong in. With
+# stock_movements_type_known (migration 002) and the `movement_type` enum this branch
+# is unreachable, so a NULL here means the type rules and the schema have drifted.
+DELTA_SQL = """
+    CASE sm.type
+        WHEN 'in'          THEN  sm.quantity
+        WHEN 'transfer_in' THEN  sm.quantity
+        WHEN 'out'         THEN -sm.quantity
+        WHEN 'transfer_out' THEN -sm.quantity
+        WHEN 'adjust'      THEN  sm.quantity
+        ELSE NULL
+    END AS delta
+"""
+
+MOVEMENT_SELECT = f"""
     SELECT sm.id, sm.org_id, sm.product_id, sm.location_id, sm.type, sm.quantity,
+           {DELTA_SQL},
            sm.reference, sm.note, sm.user_id, sm.created_at,
            p.sku AS product_sku, p.name AS product_name,
            l.name AS location_name, u.email AS user_email
@@ -57,7 +80,7 @@ async def record_transfer(
     reference = payload.reference or f"transfer:{uuid.uuid4().hex[:12]}"
 
     rows = await conn.fetch(
-        """
+        f"""
         WITH moved AS (
             INSERT INTO stock_movements
                 (org_id, product_id, location_id, type, quantity, reference, note, user_id)
@@ -67,6 +90,7 @@ async def record_transfer(
             RETURNING *
         )
         SELECT sm.id, sm.org_id, sm.product_id, sm.location_id, sm.type, sm.quantity,
+               {DELTA_SQL},
                sm.reference, sm.note, sm.user_id, sm.created_at
         FROM moved sm
         ORDER BY sm.type  -- transfer_out first

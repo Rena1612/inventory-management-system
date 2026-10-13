@@ -113,9 +113,26 @@ PowerShell: `$env:DATABASE_URL="postgresql://inventory:inventory@localhost:5433/
 
 The suite runs against a real Postgres, not mocks — the trigger behaviour and
 the append-only guarantee are the things most worth testing, and neither can be
-verified against a fake. **46 tests** cover auth, products, the movement ledger,
-tenancy isolation, locations, categories, suppliers, purchase orders and
-reports.
+verified against a fake. It covers auth, products, the movement ledger, tenancy
+isolation, locations, categories, suppliers, purchase orders, reports and
+configuration guards. The authoritative count is whatever `pytest -q` reports;
+this file deliberately does not hardcode it.
+
+## API surface
+
+Counted from `openapi.json` as **(path, method) pairs** — a path serving both
+`GET` and `POST` is one path but two operations:
+
+| Measure | Count |
+| --- | --- |
+| Distinct `/api` paths | **32** |
+| `/api` (path, method) pairs | **49** |
+| — of which `/api/health` | 1 |
+| **Real API operations** | **48** |
+
+```bash
+python -c "from main import app; s=app.openapi(); print(len([(p,m) for p,o in s['paths'].items() for m in o if m in ('get','post','patch','put','delete')]))"
+```
 
 Frontend checks:
 
@@ -177,11 +194,74 @@ layout stay consistent without each form reinventing them.
 | Variable | Where | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | `backend/.env` | asyncpg DSN (no `+asyncpg` prefix) |
+| `ENVIRONMENT` | `backend/.env` | `dev` \| `staging` \| `production` (default `dev`) |
 | `JWT_SECRET` | `backend/.env` | Token signing key, >= 32 chars |
 | `ACCESS_TOKEN_TTL_MINUTES` | `backend/.env` | Default 10080 (7 days) |
 | `CORS_ORIGINS` | `backend/.env` | JSON list; must include the exact frontend origin |
 | `POSTGRES_*`, `API_HOST_PORT` | `.env` | Compose variables |
 | `DEMO_EMAIL`, `DEMO_PASSWORD` | env | Seeded demo login |
+
+### Fail-fast guards
+
+A copied `.env.example` **must not** be able to boot a real instance:
+
+- Outside `dev`, startup fails if `JWT_SECRET` still contains a placeholder
+  marker (`change-me`, `placeholder`, `your-secret`, …).
+- `scripts/seed.py` refuses to run unless `ENVIRONMENT=dev`, so the demo account
+  with its publicly documented password cannot exist in staging or production.
+- Short secrets (< 32 chars) are rejected everywhere.
+
+## CI
+
+`.github/workflows/ci.yml` runs on every push and PR:
+
+| Job | What it does |
+| --- | --- |
+| `gitleaks` | Scans full history for committed secrets |
+| `backend` | Postgres service → migrations → `ruff` → mypy ratchet → `pytest` |
+| `frontend` | `npm ci` → typecheck → build |
+
+Migrations run against an empty database every time, so a broken migration
+fails CI rather than a local machine.
+
+**mypy is enforced as a ratchet, not ignored.** It currently reports errors, so
+CI fails only when the count rises above `backend/baseline/mypy-baseline.txt`.
+That stops the debt growing without blocking work on unrelated fixes. Lower the
+baseline in the same commit that reduces the count.
+
+**Not yet covered:** `frontend/lib/format.test.ts` has no runner — CI does not
+execute it. A `test` script lands with the UI branch.
+
+Local pre-commit gitleaks:
+
+```bash
+pip install pre-commit && pre-commit install
+```
+
+## Working with two agents
+
+This repo is worked on by two agents in **separate git worktrees**, so neither
+can pick up the other's half-finished files (and neither clobbers the other's
+`.next` build directory).
+
+```bash
+git worktree add ../inventory-backend  -b backend/ci-hardening master
+git worktree add ../inventory-frontend frontend/ui-refresh
+```
+
+| Owner | Paths |
+| --- | --- |
+| Frontend agent | `frontend/**` |
+| Backend agent | `backend/**`, `backend/migrations/`, `.github/**`, `docker-compose.yml`, `scripts/` |
+
+Anything crossing that line is reviewed by the backend agent.
+
+**Two standing rules:**
+
+1. **Explicit paths only.** No `git add -A` / `git commit -a` while two agents
+   share the repo — that is exactly how unrelated work gets swept into a commit.
+2. **Commit and push at the end of every task.** Never hold uncommitted work
+   across a session; it is one disk away from being lost.
 
 ## Printing reports
 

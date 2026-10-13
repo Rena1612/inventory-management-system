@@ -7,6 +7,7 @@ import os
 import pathlib
 import sys
 from decimal import Decimal
+from urllib.parse import urlsplit
 
 import asyncpg
 
@@ -20,9 +21,40 @@ from app.config import get_settings
 DEMO_EMAIL = os.environ.get("DEMO_EMAIL", "demo@example.com")
 DEMO_PASSWORD = os.environ.get("DEMO_PASSWORD", "demo1234")
 
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "[::1]"}
+
+
+def assert_local_database(database_url: str) -> str:
+    """Refuse to seed anything that is not a developer's own machine.
+
+    This writes an organization, users and a stock ledger behind a publicly known
+    demo password. Against a shared or production database that is data loss, so
+    the check fails loudly unless someone opts in explicitly.
+    """
+    host = urlsplit(database_url).hostname or ""
+    if host.lower() in LOCAL_HOSTS:
+        return host
+    if os.environ.get("ALLOW_REMOTE_SEED") == "1":
+        print(f"WARNING: seeding non-local database at {host} (ALLOW_REMOTE_SEED=1)")
+        return host
+    raise SystemExit(
+        f"refusing to seed non-local database {host!r}. The seed writes demo data "
+        "behind a known password. Point DATABASE_URL at localhost, or set "
+        "ALLOW_REMOTE_SEED=1 if this really is a throwaway database."
+    )
+
 
 async def run() -> None:
     settings = get_settings()
+    if not settings.is_dev:
+        # The demo login uses a publicly documented password, so it must never
+        # exist outside a developer's machine.
+        raise SystemExit(
+            f"refusing to seed demo data: ENVIRONMENT={settings.environment}. "
+            "Run this only in dev."
+        )
+
+    assert_local_database(settings.database_url)
     conn = await asyncpg.connect(settings.database_url)
     try:
         existing = await conn.fetchrow("SELECT id FROM users WHERE email = $1", DEMO_EMAIL)
