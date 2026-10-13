@@ -14,7 +14,7 @@ function render(props: Parameters<typeof StockGauge>[0]): string {
 
 function attr(html: string, name: string): string | null {
   const match = new RegExp(`${name}="([^"]*)"`).exec(html);
-  return match === null ? null : match[1];
+  return match?.[1] ?? null;
 }
 
 describe('stockLevel', () => {
