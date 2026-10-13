@@ -53,6 +53,15 @@ interface PageErrorProps {
    * reload only when no callback is supplied.
    */
   onRetry?: () => void | Promise<void>;
+  /**
+   * Consecutive failed loads, owned by whoever holds the loader.
+   *
+   * PageError unmounts on every retry — the loader clears the error, the page
+   * shows "Loading…", and a fresh PageError mounts on failure — so a counter
+   * held here would always read zero and the cooldown would never engage. Pass
+   * the real count in and the cooldown survives the unmount.
+   */
+  failedAttempts?: number;
 }
 
 /**
@@ -66,11 +75,16 @@ interface PageErrorProps {
  * long as the server asked, and any retry that fails again falls back to a short
  * local cooldown.
  */
-export function PageError({ error, fallback = 'The request failed.', onRetry }: PageErrorProps) {
+export function PageError({
+  error,
+  fallback = 'The request failed.',
+  onRetry,
+  failedAttempts = 0,
+}: PageErrorProps) {
   const [pending, setPending] = useState(false);
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
-  const attempts = useRef(0);
+  const seenAttempts = useRef(failedAttempts);
 
   const retryable = isRetryable(error);
   const serverDelay = error instanceof ApiError ? error.retryAfterMs : undefined;
@@ -81,11 +95,14 @@ export function PageError({ error, fallback = 'The request failed.', onRetry }: 
     setCooldownUntil(Date.now() + serverDelay);
   }, [serverDelay]);
 
-  // Still mounted after a retry means it failed again: cool the button down.
+  // A retry that came back as another failure: cool the button down. Driven by
+  // the caller's counter rather than local state, so it survives the unmount.
   useEffect(() => {
-    if (attempts.current === 0) return;
-    setCooldownUntil(Date.now() + RETRY_COOLDOWN_MS);
-  }, [error]);
+    if (failedAttempts > seenAttempts.current) {
+      setCooldownUntil(Date.now() + RETRY_COOLDOWN_MS);
+    }
+    seenAttempts.current = failedAttempts;
+  }, [failedAttempts]);
 
   const waitMs = Math.max(0, cooldownUntil - now);
   const cooling = waitMs > 0;
@@ -98,7 +115,6 @@ export function PageError({ error, fallback = 'The request failed.', onRetry }: 
   }, [cooling, waitMs]);
 
   async function runRetry() {
-    attempts.current += 1;
     if (onRetry === undefined) {
       window.location.reload();
       return;

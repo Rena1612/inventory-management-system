@@ -76,10 +76,12 @@ interface RequestOptions {
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined>;
   auth?: boolean;
+  /** Lets a caller cancel a superseded read. See useListPage. */
+  signal?: AbortSignal;
 }
 
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, query, auth = true } = options;
+  const { method = 'GET', body, query, auth = true, signal } = options;
 
   const url = new URL(path, BASE_URL);
   if (query) {
@@ -102,6 +104,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal,
   });
 
   if (response.status === 401 && sentAuth) {
